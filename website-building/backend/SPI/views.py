@@ -1,11 +1,32 @@
 # todo/views.py
 
+from .models import Todo, Post                     
+from .serializers import TodoSerializer, PostSerializer
 from django.shortcuts import render
-from rest_framework import viewsets          # add this
-from .serializers import TodoSerializer      # add this
-from .models import Todo                     # add this
+from rest_framework import viewsets, status
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+
+class TodoView(viewsets.ModelViewSet):
+    serializer_class = TodoSerializer
+    queryset = Todo.objects.all()
+
+class PostView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    
+    def get(self, request, *args, **kwargs):
+        posts = Post.objects.all()
+        serializer = PostSerializer(posts, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        posts_serializer = PostSerializer(data=request.data)
+        if posts_serializer.is_valid():
+            posts_serializer.save()
+            return Response(posts_serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            print('error', posts_serializer.errors)
+            return Response(posts_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class TodoView(viewsets.ModelViewSet):       # add this
-    serializer_class = TodoSerializer          # add this
-    queryset = Todo.objects.all()              # add this

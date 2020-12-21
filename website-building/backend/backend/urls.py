@@ -10,4 +10,7 @@ router = routers.DefaultRouter()
 router.register(r'todos', views.TodoView, 'todo')
 
 urlpatterns = [
-    url('admin/', admin.site.urls), url('api/', include(router.urls))]
+    path('admin/', admin.site.urls),
+    path('api/', include('SPI.urls')),
+    url('api/', include(router.urls))
+]
