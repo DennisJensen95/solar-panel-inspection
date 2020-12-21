@@ -1,5 +1,13 @@
+
+# Do not add images
 media/*
+
+# environment
 .vscode
+
+# Python redundant files
 *.pyc
+
+# Frontend environment
 package-lock.json
 yarn.lock
