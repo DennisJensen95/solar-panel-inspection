@@ -1,0 +1,5 @@
+media/*
+.vscode
+*.pyc
+package-lock.json
+yarn.lock
