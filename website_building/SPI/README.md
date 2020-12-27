@@ -1,0 +1,1 @@
+# This api is made for running on linux server
