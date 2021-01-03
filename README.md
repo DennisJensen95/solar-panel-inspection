@@ -6,6 +6,8 @@ Solar inspection software
 ## Environment analytics
 The framework for training the deep learning model is pytorch.
 
+We apply transfer learning to achieve a good model for feature recognition on the images.
+
 ## Start the website
 Start the backend
 ```console
