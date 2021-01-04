@@ -1,21 +1,16 @@
 # Solar panel inspection software stack
 
-Solar inspection software :) 
-
-Jeg tester lige vol 2
+Solar inspection software
 
 ## Environment analytics
 The framework for training the deep learning model is pytorch.
 
 We apply transfer learning to achieve a good model for feature recognition on the images.
-Changes are evident.
-
-Plz virk UwU
 
 ## Start the website
 Start the backend
 ```console
-$ cd website-building/backend && python manage.py runserver
+$ cd website_building/backend && python manage.py runserver
 ```
 Start the frontend
 ```console
