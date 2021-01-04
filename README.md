@@ -9,7 +9,7 @@ The framework for training the deep learning model is pytorch.
 We apply transfer learning to achieve a good model for feature recognition on the images.
 Changes are evident.
 
-Sudden changes appears!?
+Plz virk UwU
 
 ## Start the website
 Start the backend
