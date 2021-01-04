@@ -1,6 +1,6 @@
 # Solar panel inspection software stack
 
-Solar inspection software 
+Solar inspection software :) 
 
 
 ## Environment analytics
