@@ -2,6 +2,7 @@
 
 Solar inspection software :) 
 
+Jeg tester lige vol 2
 
 ## Environment analytics
 The framework for training the deep learning model is pytorch.
