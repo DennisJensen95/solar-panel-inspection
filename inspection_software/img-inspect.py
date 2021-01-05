@@ -3,24 +3,24 @@ import cv2
 import glob
 import numpy as np
 
+
 def main():
-    
     # Generate paths to all viable images
     files, masks = GeneratePath()
 
     # Print example
-    imgNum = 2002
+    imgNum = 352
     print(files[imgNum])
     print(masks[imgNum])
 
     # Load .mat file
     GT = sci.loadmat(masks[imgNum])
-    Labelstemp = GT['GTLabel'] # fault labels
-    Labels = np.transpose(Labelstemp) 
-    Classification = GT['GTMask'] # fault mask
+    Labelstemp = GT['GTLabel']  # fault labels
+    Labels = np.transpose(Labelstemp)
+    Classification = GT['GTMask']  # fault mask
 
     # Load example image
-    Image = cv2.imread(files[imgNum], cv2.IMREAD_GRAYSCALE) 
+    Image = cv2.imread(files[imgNum], cv2.IMREAD_GRAYSCALE)
 
     # Show image
     cv2.imshow('Image', Image)
@@ -34,7 +34,7 @@ def GeneratePath():
     Returns:
         [list]: [path to images]
         [list]: [path to masks/labels]
-    """    
+    """
 
     # Path to directories
     ImageDir = "data/Serie1_CellsAndGT/CellsCorr/*.png"
@@ -44,12 +44,12 @@ def GeneratePath():
     files = sorted(glob.glob(ImageDir))
     masks = sorted(glob.glob(GTDir))
 
-    files = RemoveNoMatches(files,masks)
+    files = RemoveNoMatches(files, masks)
 
     return files, masks
 
 
-def RemoveNoMatches(a,b):
+def RemoveNoMatches(a, b):
     """Returns any path that does not have a corresponding mask 
 
     Returns:
@@ -57,8 +57,8 @@ def RemoveNoMatches(a,b):
     """
 
     # Beware of the index!!
-    names = [w[52:-4] for w in a] # 33 + 19 = 52
-    names_m = [w[48:-4] for w in b] # 30 + 18 = 48
+    names = [w[52:-4] for w in a]  # 33 + 19 = 52
+    names_m = [w[48:-4] for w in b]  # 30 + 18 = 48
 
     # Only keep strings that occur in each list
     names = [x for x in names if x in names_m]
