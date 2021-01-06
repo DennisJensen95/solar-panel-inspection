@@ -151,8 +151,8 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+    img_dir = "./data/combined_data/CellsCorr/"
+    mask_dir = "./data/combined_data/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir, mask_dir, filter=True, transforms=get_transform(train=True)
     )
