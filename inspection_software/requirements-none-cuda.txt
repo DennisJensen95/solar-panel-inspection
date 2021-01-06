@@ -5,3 +5,5 @@ torchaudio==0.7.2
 fastai
 opencv-python
 scipy
+paramiko
+scp
