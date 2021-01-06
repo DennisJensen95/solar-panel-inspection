@@ -5,7 +5,8 @@ import cv2
 import glob
 import numpy as np
 import pandas as pd
-from fastai.vision.all import *
+# from fastai.vision.all import *
+import torch
 
 class solar_panel_data():
 
