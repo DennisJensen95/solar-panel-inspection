@@ -24,7 +24,7 @@ class solar_panel_data():
             self.RemoveNoLabels()
             print(f'Avaliable files: {len(self.files)}')
             print(f"Removing files where all areas are smaller than {area_limit} square pixel...")
-            self.RemoveBadArea(area_limit)
+            self.RemoveErrors(area_limit)
             print(f'Avaliable files: {len(self.files)}')
         
 
@@ -56,6 +56,15 @@ class solar_panel_data():
         return files, masks
 
     def CleanErrors(self, filename, mask):
+        """Special case where data can be fixed by simply removing some numbers
+
+        Args:
+            filename (string): the image path of the file in question
+            mask (numpy array): the given mask
+
+        Returns:
+            [numpy array]: fixed mask
+        """        
         # print(filename[-27:])
         if filename[-27:] == "10_4081_Cell_Row5_Col_3.png":
             mask[114:119, 264:277] = 0
@@ -82,6 +91,8 @@ class solar_panel_data():
         return [a[0][:(n_f+19)] + w + a[0][-4:] for w in names]
 
     def RemoveNoLabels(self):
+        """Removes measurements that does not contain a label
+        """        
         names_m = []
         flag = False
         for i in range(len(self.masks)):
@@ -92,23 +103,33 @@ class solar_panel_data():
             #     print("Remove bad measurement")
             #     flag = True
 
+            # Make a list of all files that has a label
             if Labelstemp.size > 0 and not flag:
                 names_m.append(self.masks[i])
             
             flag = False
         
+        # Update mask list
         self.masks = names_m
         n_f = len(self.ImageDir)-1
         n_m = len(self.GTDir)-1
+
+        # Update files list
         self.files = self.RemoveNoMatches(self.files,names_m, n_f, n_m)
 
-    def RemoveBadArea(self, area_limit):
-        
+    def RemoveErrors(self, area_limit):
+        """Remove measurements where the area in a mask is too small.
+        The function also checks for errors in the given data such as
+        disparity between number of labels and amount of unique masks
+
+        Args:
+            area_limit (integer): limit for removing bad areas
+        """        
         names_m = []
         for i in range(len(self.files)):
             if i % 50 == 0:
                 print(".")
-            if not self.__getitem__(i, find_bad_area=True, area_limit=area_limit):
+            if not self.__getitem__(i, find_error=True, area_limit=area_limit):
                 names_m.append(self.masks[i])
         
         self.masks = names_m
@@ -122,21 +143,30 @@ class solar_panel_data():
             print(self.masks[i])
             print("------------------------")
 
-    # def get_y(self):
-    #     # Load .mat file
-    #     GT = sci.loadmat(path)
-    #     mask = GT['GTMask'] # fault mask
-    #     return mask
 
-    # def __getDatablock__(self):
-    #     codes = ["No Failure", "Crack A", "Crack B", "Crack C", "Finger Failure"]
-    #     return DataBlock(blocks = (ImageBlock, MaskBlock(codes=codes)),
-    #                      get_items = get_image_files,
-    #                      get_y = self.get_y,
-    #                      splitter  = RandomSplitter(),
-    #                      )
+    def __getitem__(self, idx, find_error=False, area_limit=100):
+        """Method to load data
+        Function returns independent variable (image) and dependent variable (target).
 
-    def __getitem__(self, idx, find_bad_area=False, area_limit=100):
+        The dependent variable contains various information:
+                target["boxes"]
+                target["labels"]
+                target["label_str"]
+                target["masks"]
+                target["image_id"]
+                target["area"]
+
+        The function also tests and removes masks that have an area smaller than a limit value
+
+        The "find_error" flag, when set to True will NOT return the variables, but instead return
+        a True or False value, whether or not the data is usable or not. This is used in the 
+        RemoveErrors() function.
+
+        Args:
+            idx ([type]): Index of the file we are inspecting
+            find_error (bool, optional): Flag to check for errors. Defaults to False.
+            area_limit (int, optional): Defaults to 100.
+        """        
         # load images and masks
         img_path = self.files[idx]
         mask_path = self.masks[idx]
@@ -147,19 +177,22 @@ class solar_panel_data():
         Labels = np.transpose(Labelstemp)
         mask = GT['GTMask'] # fault mask
         # Load example image
-        if not find_bad_area:
+        if not find_error:
             img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         # Check if this mask is found to be errenous
         mask = self.CleanErrors(img_path, mask)
 
+        # If there are no labels, we assume no faults in the image
         if Labels.size == 0:
             new_labels = []
             labels = []
             boxes = [[]]
             masks = mask
 
-        else:
+        else: # Start checking for bounding boxes
+
+            # Construct an array of labels
             new_labels = []
             for i in range(len(Labels[0])):
                 new_labels.append(Labels[0][i][0])
@@ -175,16 +208,13 @@ class solar_panel_data():
             masks = mask == obj_ids[:, None, None]
             masks = masks.astype(np.uint8)
 
-            if len(obj_ids) is not len(new_labels):
+            # Checks for disparity between number of unique numbers in the mask and amount of labels
+            if find_error and (len(obj_ids) is not len(new_labels)):
                 # print(obj_ids)
                 # print(new_labels)
                 # print(f'{len(obj_ids)} unique objects and {len(new_labels)} labels')
                 # print(f'Discard: {img_path}')
                 return True
-
-            # print(Labels)
-            # print(obj_ids)
-            # print(len(masks))
             
             # get bounding box coordinates for each mask
             boxes = []
@@ -198,11 +228,14 @@ class solar_panel_data():
                     ymax = y+h
                     boxes.append([xmin, ymin, xmax, ymax])
 
-        if len(boxes) is not len(obj_ids):
-                # print(f'{len(obj_ids)} unique objects and {len(boxes)} bounding boxes')
-                # print(f'Discard: {img_path}')
-                return True
+        # Checks for disparity between number of bounding boxes and unique numbers
+        # I.e. if two clusters in the mask has the same number
+        if find_error and (len(boxes) is not len(obj_ids)):
+            # print(f'{len(obj_ids)} unique objects and {len(boxes)} bounding boxes')
+            # print(f'Discard: {img_path}')
+            return True
 
+        # Convert to tensor to calculate area easily
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
 
@@ -211,6 +244,7 @@ class solar_panel_data():
         # print(f'Length of labels: {len(new_labels)}')
         # print(f'Length of masks: {len(masks)}')
 
+        # Area check (if there are any labels/areas)
         if Labels.size > 0:
             newboxes = []
             newlabels = []
@@ -231,17 +265,20 @@ class solar_panel_data():
         masks = torch.as_tensor(masks, dtype=torch.uint8)
         image_id = torch.tensor([idx])
 
+        # Calculate new area matrix
         if len(new_labels) > 0:
-            if find_bad_area:
+            if find_error:
                 return False
             area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-        else:
+
+        else: # If no more areas are left that can be used, we must let the program know to completely remove the file
             boxes = torch.as_tensor([[]], dtype=torch.float32)
             area = []
 
-            if find_bad_area:
+            if find_error:
                 return True
 
+        # Construct target dictionary
         target = {}
         target["boxes"] = boxes
         target["labels"] = labels
@@ -315,13 +352,13 @@ def main():
     GTDir = "../../data/Serie1_CellsAndGT/MaskGT/"
     # GTDir = "../../data/Serie1_CellsAndGT/mask/"
 
-    dl = solar_panel_data(ImageDir, GTDir, filter = True)
+    data_serie1 = solar_panel_data(ImageDir, GTDir, filter = True)
 
-    # dl.PrintPaths()
+    # data_serie1.PrintPaths()
 
     # num = 8499#8500#8512#8511#8697 #4494
     num = 11
-    im, target = dl.__getitem__(num)
+    im, target = data_serie1.__getitem__(num)
 
     print(f'Fault string: {target["label_str"]}')
     print(f'Fault label: {target["labels"].numpy()}')
@@ -351,7 +388,7 @@ def main():
             
             DisplayTargetMask(target,i)
 
-    # DisplayAllFaults(dl.masks)
+    # DisplayAllFaults(data_serie1.masks)
 
 
 
