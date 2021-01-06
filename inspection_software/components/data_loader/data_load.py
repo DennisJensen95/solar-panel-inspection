@@ -9,7 +9,7 @@ from fastai.vision.all import *
 
 class solar_panel_data():
 
-    def __init__(self, img_dir, gt_dir, transforms = None, removeNoLabels = True):
+    def __init__(self, img_dir, gt_dir, transforms = None, filter = True, area_limit=30):
         self.ImageDir = img_dir + "*"
         self.GTDir = gt_dir + "*"
 
@@ -17,9 +17,11 @@ class solar_panel_data():
 
         self.files, self.masks = self.Load()
 
-        if removeNoLabels:
+        if filter:
             print("Removing files without labels from path...")
             self.RemoveNoLabels()
+            # print(f"Removing files where all areas are smaller than {area_limit} square pixel...")
+            # self.RemoveBadArea(area_limit)
         
 
 
@@ -48,6 +50,14 @@ class solar_panel_data():
         files = self.RemoveNoMatches(files,masks, n_f, n_m)
 
         return files, masks
+
+    def CleanErrors(self, filename, mask):
+        print(filename[-27:])
+        if filename[-27:] == "10_4081_Cell_Row5_Col_3.png":
+            mask[114:119, 264:277] = 0
+            print("Found bad mask. Doing cleanup...")
+        
+        return mask
 
 
     def RemoveNoMatches(self, a,b, n_f, n_m):
@@ -81,6 +91,20 @@ class solar_panel_data():
         n_m = len(self.GTDir)-1
         self.files = self.RemoveNoMatches(self.files,names_m, n_f, n_m)
 
+    def RemoveBadArea(self, area_limit):
+        
+        names_m = []
+        for i in range(len(self.files)):
+            _, target = self.__getitem__(i)
+
+            if np.max(target["area"].numpy()) > area_limit:
+                names_m.append(self.masks[i])
+        
+        self.masks = names_m
+        n_f = len(self.ImageDir)-1
+        n_m = len(self.GTDir)-1
+        self.files = self.RemoveNoMatches(self.files,names_m, n_f, n_m)
+
     def PrintPaths(self):
         for i in range(len(self.files)):
             print(self.files[i])
@@ -101,7 +125,7 @@ class solar_panel_data():
     #                      splitter  = RandomSplitter(),
     #                      )
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx, find_bad_area=False, area_limit=60):
         # load images and masks
         img_path = self.files[idx]
         mask_path = self.masks[idx]
@@ -113,6 +137,9 @@ class solar_panel_data():
         mask = GT['GTMask'] # fault mask
         # Load example image
         img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+
+        # Check if this mask is found to be errenous
+        mask = self.CleanErrors(img_path, mask)
 
         if Labels.size == 0:
             new_labels = []
@@ -135,6 +162,10 @@ class solar_panel_data():
             # of binary masks
             masks = mask == obj_ids[:, None, None]
             masks = masks.astype(np.uint8)
+
+            print(Labels)
+            print(obj_ids)
+            print(len(masks))
             
             # get bounding box coordinates for each mask
             boxes = []
@@ -148,16 +179,38 @@ class solar_panel_data():
                     ymax = y+h
                     boxes.append([xmin, ymin, xmax, ymax])
 
-        # convert everything into a torch.Tensor
+    
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
 
-        # there is only one class
+        # print(f'Area before check: {area}')
+
+        # if Labels.size > 0:
+        #     newboxes = []
+        #     newlabels = []
+        #     newmasks = []
+        #     for i in range(len(new_labels)):
+        #         if area[i].numpy() > area_limit:
+        #             newboxes.append(boxes[i].numpy())
+        #             newlabels.append(new_labels[i])
+        #             newmasks.append(masks[i])
+            
+        #     boxes = newboxes
+        #     new_labels = newlabels
+        #     masks = newmasks
+        
+        # convert everything into a torch.Tensor
+        # boxes = torch.as_tensor(boxes, dtype=torch.float32)
         labels = torch.as_tensor(self.__getlabel__(new_labels), dtype=torch.int64)
         masks = torch.as_tensor(masks, dtype=torch.uint8)
-
         image_id = torch.tensor([idx])
-        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-        
+
+        # if len(new_labels) > 0:
+        #     area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        # else:
+        #     boxes = torch.as_tensor([[]], dtype=torch.float32)
+        #     area = []
+
         target = {}
         target["boxes"] = boxes
         target["labels"] = labels
@@ -231,31 +284,37 @@ def main():
     GTDir = "../../data/Serie1_CellsAndGT/MaskGT/"
     # GTDir = "../../data/Serie1_CellsAndGT/mask/"
 
-    dl = solar_panel_data(ImageDir, GTDir, removeNoLabels = True)
-
-
-
+    dl = solar_panel_data(ImageDir, GTDir, filter = True)
 
     # dl.PrintPaths()
 
     # num = 8499#8500#8512#8511#8697 #4494
-    num = 91
+    num = 93
     im, target = dl.__getitem__(num)
 
 
-    print(target["label_str"])
-    print(target["labels"].numpy())
+    print(f'Fault string: {target["label_str"]}')
+    print(f'Fault label: {target["labels"].numpy()}')
 
     boxes = target["boxes"].numpy().astype(np.uint32)
-    print(boxes)
+    print(f'Boxes: {boxes}')
 
     print(f'Area: {target["area"]}')
+    print(f'Number of masks: {len(target["masks"])}')
 
 
-    if (len(boxes[0] > 0)):
+    if (len(boxes) > 0):
         for i in range(len(boxes)):
             cv2.rectangle(im,(boxes[i][0],boxes[i][1]),(boxes[i][2],boxes[i][3]),(0,255,0),2)
-            cv2.putText(im,target["label_str"][i], (boxes[i][2]-60,boxes[i][3]+20),1,0.8,(0,255,0),1)    
+
+            xc = ((boxes[i][2]/2+boxes[i][0]/2))
+            if np.abs(xc) > np.abs(xc-im.shape[0]):
+                xc = (xc-50).astype(np.uint64)
+            else:
+                xc = (xc+15).astype(np.uint64)
+            yc = ((boxes[i][3]/2+boxes[i][1]/2)).astype(np.uint64)
+            print(f'(xc,yc) = ({xc},{yc})')
+            cv2.putText(im,target["label_str"][i], (xc,yc),1,0.8,(0,255,0),1)    
             
             DisplayTargetMask(target,i)
 
