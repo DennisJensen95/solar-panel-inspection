@@ -143,7 +143,27 @@ class solar_panel_data():
             print(self.masks[i])
             print("------------------------")
 
+    def ResizeMasks(self, masks, resized_size):
+        resized_mask = np.resize(masks, (len(masks), resized_size[0], resized_size[1]))
+        return resized_mask
 
+    def ResizeBoundingBox(self, boxes, orig_shape, resized_size):
+        resized_boxes = []
+        print(orig_shape)
+        for box in boxes:
+            target_shape = orig_shape
+            
+            x_scale = resized_size[0] / target_shape[0]
+            y_scale = resized_size[1] / target_shape[1]
+            
+            xmin = int(np.round(box[0] * x_scale))
+            ymin = int(np.round(box[1] * y_scale))
+            xmax = int(np.round(box[2] * x_scale))
+            ymax = int(np.round(box[3] * y_scale))
+            
+            resized_boxes.append([xmin, ymin, xmax, ymax])
+
+        return resized_boxes
     def __getitem__(self, idx, find_error=False, area_limit=100):
         """Method to load data
         Function returns independent variable (image) and dependent variable (target).
@@ -178,11 +198,13 @@ class solar_panel_data():
         mask = GT['GTMask'] # fault mask
         # Load example image
         if not find_error:
-            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+            img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            orig_img_size = img.shape
+            img = cv2.resize(img, (224, 224))
 
         # Check if this mask is found to be errenous
         mask = self.CleanErrors(img_path, mask)
-
+            
         # If there are no labels, we assume no faults in the image
         if Labels.size == 0:
             new_labels = []
@@ -191,7 +213,7 @@ class solar_panel_data():
             masks = mask
 
         else: # Start checking for bounding boxes
-
+            
             # Construct an array of labels
             new_labels = []
             for i in range(len(Labels[0])):
@@ -207,6 +229,8 @@ class solar_panel_data():
             # of binary masks
             masks = mask == obj_ids[:, None, None]
             masks = masks.astype(np.uint8)
+            
+            # masks = self.ResizeMasks(masks, (224, 224))
 
             # Checks for disparity between number of unique numbers in the mask and amount of labels
             if find_error and (len(obj_ids) is not len(new_labels)):
@@ -227,11 +251,14 @@ class solar_panel_data():
                     ymin = y
                     ymax = y+h
                     boxes.append([xmin, ymin, xmax, ymax])
-
+        
+        if not find_error:
+            boxes = self.ResizeBoundingBox(boxes, orig_img_size, (224, 224))
+        
         # Checks for disparity between number of bounding boxes and unique numbers
         # I.e. if two clusters in the mask has the same number
         if find_error and (len(boxes) is not len(obj_ids)):
-            # print(f'{len(obj_ids)} unique objects and {len(boxes)} bounding boxes')
+            print(f'{len(obj_ids)} unique objects and {len(boxes)} bounding boxes')
             # print(f'Discard: {img_path}')
             return True
 
@@ -291,7 +318,7 @@ class solar_panel_data():
             img, target = self.transforms(img, target)
 
         return img, target
-
+            
     def __len__(self):
         return len(self.files)
 
@@ -345,12 +372,10 @@ def DisplayAllFaults(masks):
             print(i)
 
 
-
 def main():
     # Path to directories
     ImageDir = "../../data/Serie1_CellsAndGT/CellsCorr/"
     GTDir = "../../data/Serie1_CellsAndGT/MaskGT/"
-    # GTDir = "../../data/Serie1_CellsAndGT/mask/"
 
     data_serie1 = solar_panel_data(ImageDir, GTDir, filter = True)
 
