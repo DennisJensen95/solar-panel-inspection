@@ -11,3 +11,6 @@ media/*
 # Frontend environment
 package-lock.json
 yarn.lock
+
+# Results folder
+Results-folder
