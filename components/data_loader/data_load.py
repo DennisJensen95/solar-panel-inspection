@@ -8,6 +8,7 @@ import pandas as pd
 
 # from fastai.vision.all import *
 import torch
+import os
 
 
 class solar_panel_data:
@@ -19,7 +20,8 @@ class solar_panel_data:
 
         self.files, self.masks = self.Load()
 
-        self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
+        self.label_dic = {"Crack A": 1, "Crack B": 2,
+                          "Crack C": 3, "Finger Failure": 4}
 
         if filter:
             print("Removing files without labels from path...")
@@ -80,8 +82,8 @@ class solar_panel_data:
             [list]: [image paths with corresponding mask]
         """
         # Beware of the index!!
-        names = [w[(n_f + 19) : -4] for w in a]
-        names_m = [w[(n_m + 18) : -4] for w in b]
+        names = [w[(n_f + 19): -4] for w in a]
+        names_m = [w[(n_m + 18): -4] for w in b]
 
         # Only keep strings that occur in each list
         names = [x for x in names if x in names_m]
@@ -145,7 +147,8 @@ class solar_panel_data:
             print("------------------------")
 
     def ResizeMasks(self, masks, resized_size):
-        resized_mask = np.resize(masks, (len(masks), resized_size[0], resized_size[1]))
+        resized_mask = np.resize(
+            masks, (len(masks), resized_size[0], resized_size[1]))
         return resized_mask
 
     def ResizeBoundingBox(self, boxes, orig_shape, resized_size):
@@ -289,7 +292,8 @@ class solar_panel_data:
 
         # convert everything into a torch.Tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        labels = torch.as_tensor(self.__getlabel__(new_labels), dtype=torch.int64)
+        labels = torch.as_tensor(
+            self.__getlabel__(new_labels), dtype=torch.int64)
         masks = torch.as_tensor(masks, dtype=torch.uint8)
         image_id = torch.tensor([idx])
 
@@ -298,7 +302,8 @@ class solar_panel_data:
             if len(new_labels) > 0:
                 if find_error:
                     return False
-                area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+                area = (boxes[:, 3] - boxes[:, 1]) * \
+                    (boxes[:, 2] - boxes[:, 0])
 
             else:  # If no more areas are left that can be used, we must let the program know to completely remove the file
                 boxes = torch.as_tensor([[]], dtype=torch.float32)
@@ -414,7 +419,8 @@ def main():
 
             try:
                 cv2.putText(
-                    im, target["label_str"][i], (xc, yc), 1, 0.8, (0, 255, 0), 1
+                    im, target["label_str"][i], (xc,
+                                                 yc), 1, 0.8, (0, 255, 0), 1
                 )
             except:
                 print(f'Length of label_str: {len(target["label_str"])}')
