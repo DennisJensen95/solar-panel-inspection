@@ -80,7 +80,8 @@ class SSH_Util:
         try:
             print("Establishing connection...")
             self.transfer_client = paramiko.SSHClient()
-            self.transfer_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self.transfer_client.set_missing_host_key_policy(
+                paramiko.AutoAddPolicy())
             self.client = paramiko.SSHClient()
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -194,7 +195,10 @@ class SSH_Util:
         self.scp_client.put(
             "components", recursive=True, remote_path=self.get_environment_path()
         )
-        self.scp_client.put("train.py", remote_path=self.get_environment_path())
+        self.scp_client.put(
+            "train.py", remote_path=self.get_environment_path())
+        self.scp_client.put("requirements-cuda-10.1.txt",
+                            remote_path=self.get_environment_path())
         self.scp_client.put(
             "DevOps/HPC_trainer/conf/QueJob.sh", remote_path=self.get_environment_path()
         )
@@ -217,7 +221,7 @@ class SSH_Util:
         self.scp_necessary_files()
         print("Queing job")
         self.execute_command(
-            [f"cd {self.default_dir};ls;bsub < QueJob.sh"],
+            [f"cd {self.default_dir};bsub < QueJob.sh"],
             init=True,
             print_output=True,
         )
