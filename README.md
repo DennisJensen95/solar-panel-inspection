@@ -12,6 +12,15 @@ We apply transfer learning to achieve a good model for feature recognition on th
 
 Python script for HPC automation w.r.t training of neural network
 
+Before being able to que jobs login to HPC and load python modules required
+
+```console
+solar-panel-inspection$ scp requirements-cuda-10.1.txt sxxxxx@transfer.gbar.dtu.dk:~/solar_inspect
+solar-panel-inspection$ ssh sxxxxx@loginx.hpc.dtu.dk
+solar-panel-inspection$ module load python3/3.8.2;module load cuda/10.1;module load cudnn/v8.0.4.30-prod-cuda-10.1
+solar-panel-inspection/solar_inspect$ pip3 install --user -r requirements-cuda-10.1.txt 
+```
+
 To automatically que a training job in HPC run the following command:
 
 ```console
