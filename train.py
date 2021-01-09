@@ -3,21 +3,51 @@ from components.data_loader.data_load import solar_panel_data
 import components.torchvision_utilities.transforms as T
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
+from components.neural_nets.NNClassifier import ChooseModel
+from components.model_configuration.configure_model import setup_arg_parsing
 import torchvision
+import pandas as pd
 import torch
+import json
 import copy
 import time
 import os
 
+
 results_folder = "Results-folder"
 
 
-def create_filename_timestamp(name):
-    timestr = time.strftime("%Y%m%d-%H%M")
-    return name + "_" + timestr
+def create_filename(name, model, classification, timestamp=False):
+    if not (timestamp != False):
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+    else:
+        timestr = timestamp
+    return name + "_" + model + "_" + classification + "_" + timestr
 
 
-def create_results_folder():
+def create_folder(name, configuration):
+    create_results_folder(configuration)
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    folder_name = (
+        name
+        + "_"
+        + configuration["Model"]
+        + "_"
+        + configuration["Classification"]
+        + "_"
+        + timestr
+    )
+    path = results_folder + "/" + folder_name
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    with open(path + "/model_conf.json", "w+") as file:
+        json.dump(configuration, file)
+
+    return path, timestr
+
+
+def create_results_folder(configuration):
     if not os.path.exists(results_folder):
         os.mkdir(results_folder)
 
@@ -43,8 +73,6 @@ def evaluate(model, data_loader_test, device):
     # Put in evaluation mode
     model.eval()
 
-    print(f"Entered evaluation")
-
     success_array = []
     pics = 0
 
@@ -63,7 +91,9 @@ def evaluate(model, data_loader_test, device):
             pics = pics + 1
             logger.__load__(image, targets[i])
             label, score = logger.get_highest_predictions()
-            success, targets_success, overlaps = logger.get_success_w_box_overlap(label, score)
+            success, targets_success, overlaps = logger.get_success_w_box_overlap(
+                label, score
+            )
 
             if success:
                 # print(f'Targets_success: {targets_success}')
@@ -71,45 +101,53 @@ def evaluate(model, data_loader_test, device):
                 for val in targets_success:
                     success_array.append(val)
             else:
-                n_targ = len(targets[i]['labels'])
+                n_targ = len(targets[i]["labels"])
                 for k in range(n_targ):
                     success_array.append(0)
-    
-    print(f'Success (length={len(success_array)}): {success_array}')
-    success_percent = success_array.count(1)/len(success_array)
-    print(f'Percent success: {success_percent}')
 
-    print(f'Pictures: {pics}')
-
-
-
-            # print(f'Highest prediction label(s): {label}')
-            # print(f'Score(s): {score}')
-
-            
-
-
-            # check overlapping area for bounding boxes
-            
-
-        # res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
-        # evaluator_time = time.time()
-        # # coco_evaluator.update(res)
-        # evaluator_time = time.time() - evaluator_time
-        # # metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
+    success_percent = success_array.count(1) / len(success_array)
 
     # Put back in train mode
     model.train()
 
     torch.set_num_threads(n_threads)
 
-def train():
+    return success_percent
 
-    create_results_folder()
+
+def load_configuration(filename):
+    if filename == None:
+        filename = "model_conf.json"
+
+    with open(filename, "r") as file:
+        configuration = json.load(file)
+
+    print(f'Selected model: {configuration["Model"]}')
+    print(f'Label configuration: {configuration["Classification"]}')
+
+    return configuration
+
+
+def write_data_csv(configuration, data, root_dir, timestamp=False):
+    filename = create_filename(
+        "solar_model_data",
+        configuration["Model"],
+        configuration["Classification"],
+        timestamp,
+    )
+
+    data_frame = pd.DataFrame(data)
+    data_frame.to_csv(root_dir + "/" + filename)
+
+
+def train():
+    args = setup_arg_parsing()
+    configuration = load_configuration(args.ModelConf)
+    root_dir, time_stamp = create_folder("solar_model", configuration)
     # Locate cpu or GPU
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+    model = ChooseModel(configuration["Model"], configuration["Labels"], freeze=False)
     model.to(device)
 
     # Initialize data loader
@@ -148,22 +186,35 @@ def train():
 
     # Optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+
+    optimizer = torch.optim.SGD(
+        params,
+        lr=configuration["LearningRate"],
+        momentum=configuration["Momentum"],
+        weight_decay=configuration["WeightDecay"],
+    )
+
     # and a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer, step_size=configuration["StepSize"], gamma=configuration["Gamma"]
+    )
 
     model.train()
     start = time.time()
-    data_iter_train = iter(data_loader_train)
+    losses_data = []
+    num_images = []
+    time_data = []
+    success_percentage_data = []
+    success_percentage = 0
+    start_time = time.time()
     for epoch in range(epochs):
-        running_loss = 0.0
+        data_iter_train = iter(data_loader_train)
         for images, targets in data_iter_train:
             # Move images and targets to GPU
             images = list(image.to(device) for image in images)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             optimizer.zero_grad()
-
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
 
@@ -173,18 +224,49 @@ def train():
             # Be better
             optimizer.step()
 
-            # print statistics
-            print(i)
-            if i % 60 == 0:
-                print(f"Epoch: {epoch}: loss {losses}")
+            # Optimize learning rate
+            lr_scheduler.step()
 
-            if i % 5 == 0 and i != 0:
-                evaluate(model, data_loader_test, device)
+            # print statistics
+            if i % 60 == 0:
+                print(
+                    f"Epoch: {epoch}: loss {losses} Accuracy: {success_percentage*100}"
+                )
+
+            if i % 30 == 0 and i != 0:
+                success_percentage = evaluate(model, data_loader_test, device)
+
+            success_percentage_data.append(success_percentage)
+
+            # Save data
+            if torch.cuda.is_available():
+                losses_data.append(losses.cpu().detach().numpy())
+            else:
+                losses_data.append(losses.detach().numpy())
+
+            if len(num_images) > 1:
+                num_images.append(num_images[-1] + len(images))
+            else:
+                num_images.append(len(images))
+            time_data.append(time.time() - start_time)
 
             i += 1
 
-    filename = create_filename_timestamp("solar_model")
-    torch.save(model.state_dict(), "./" + results_folder + "/" + filename)
+    filename = create_filename(
+        "solar_model",
+        configuration["Model"],
+        configuration["Classification"],
+        timestamp=time_stamp,
+    )
+    torch.save(model.state_dict(), root_dir + "/" + filename)
+
+    data = {
+        "Time": time_data,
+        "Num images": num_images,
+        "Loss": losses_data,
+        "Succes Percentage": success_percentage_data,
+    }
+    write_data_csv(configuration, data, root_dir, timestamp=time_stamp)
 
 
 if __name__ == "__main__":

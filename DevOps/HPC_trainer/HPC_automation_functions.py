@@ -1,4 +1,4 @@
-from conf import ssh_conf as conf_file
+from DevOps.HPC_trainer.conf import ssh_conf as conf_file
 import paramiko
 from scp import SCPClient
 import os
@@ -43,7 +43,7 @@ class SSH_Util:
 
     def connect_transfer_client(self):
         print("Connected to server", self.host)
-        self.scp_client = SCPClient(self.client.get_transport())
+        self.scp_client = SCPClient(self.client.get_transport(), progress=self.progress)
 
     def connect_execution_client(self, host):
         self.client.connect(
@@ -202,6 +202,8 @@ class SSH_Util:
         self.scp_client.put(
             "DevOps/HPC_trainer/conf/QueJob.sh", remote_path=self.get_environment_path()
         )
+        self.scp_client.put("model_conf.json",
+                            remote_path=self.get_environment_path())
 
     def create_command(self, commands, init=True):
         if init:
@@ -225,7 +227,13 @@ class SSH_Util:
             init=True,
             print_output=True,
         )
-
+    
+    def progress(self, filename, size, sent):
+        sys.stdout.write("%s's progress: %.2f%%   \r" % (filename, float(sent)/float(size)*100) )
+    
+    def extract_results_folder(self):
+        self.scp_client.get(remote_path=self.get_environment_path() + b"/Results-folder", recursive=True)
+    
     def close_session(self):
         self.client.close()
 
