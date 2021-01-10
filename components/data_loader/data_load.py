@@ -235,12 +235,16 @@ class solar_panel_data:
             masks = masks.astype(np.uint8)
 
             # Checks for disparity between number of unique numbers in the mask and amount of labels
-            if find_error and (len(obj_ids) is not len(new_labels)):
-                # print(obj_ids)
-                # print(new_labels)
-                # print(f'{len(obj_ids)} unique objects and {len(new_labels)} labels')
+            if find_error and (len(new_labels) is not len(obj_ids)):
+                # print(f"At {idx}: {len(obj_ids)} unique objects and {len(new_labels)} labels")
                 # print(f'Discard: {img_path}')
                 return True
+            # if find_error and (len(obj_ids) is not len(new_labels)):
+            #     # print(obj_ids)
+            #     # print(new_labels)
+            #     print(f'{len(obj_ids)} unique objects and {len(new_labels)} labels')
+            #     print(f'Discard: {img_path}')
+            #     return True
 
             # get bounding box coordinates for each mask
             boxes = []
@@ -258,10 +262,11 @@ class solar_panel_data:
 
         boxes = self.ResizeBoundingBox(boxes, orig_img_size, (224, 224))
 
+
         # Checks for disparity between number of bounding boxes and unique numbers
         # I.e. if two clusters in the mask has the same number
         if find_error and (len(boxes) is not len(obj_ids)):
-            # print(f"{len(obj_ids)} unique objects and {len(boxes)} bounding boxes")
+            # print(f"At {idx}: {len(obj_ids)} unique objects and {len(boxes)} bounding boxes")
             # print(f'Discard: {img_path}')
             return True
 
@@ -379,8 +384,8 @@ def DisplayAllFaults(masks):
 
 def main():
     # Path to directories
-    ImageDir = "../../data/Serie1_CellsAndGT/CellsCorr/"
-    GTDir = "../../data/Serie1_CellsAndGT/MaskGT/"
+    ImageDir = "data/Serie1_CellsAndGT/CellsCorr/"
+    GTDir = "data/Serie1_CellsAndGT/MaskGT/"
 
     data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True)
 
@@ -389,7 +394,7 @@ def main():
     # num = 8499#8500#8512#8511#8697 #4494
     num = 11
     im, target = data_serie1.__getitem__(num)
-    print(f'Fault string: {target["label_str"]}')
+    # print(f'Fault string: {target["label_str"]}')
     print(f'Fault label: {target["labels"].numpy()}')
 
     boxes = target["boxes"].numpy().astype(np.uint32)
@@ -398,36 +403,35 @@ def main():
     print(f'Area: {target["area"]}')
     print(f'Number of masks: {len(target["masks"])}')
 
-    if len(boxes[0]) > 0:
-        for i in range(len(boxes)):
-            print(im.shape)
-            cv2.rectangle(
-                im,
-                (boxes[i][0], boxes[i][1]),
-                (boxes[i][2], boxes[i][3]),
-                (0, 255, 0),
-                2,
-            )
+    # if len(boxes[0]) > 0:
+    #     for i in range(len(boxes)):
+    #         print(im.shape)
+    #         cv2.rectangle(
+    #             im,
+    #             (boxes[i][0], boxes[i][1]),
+    #             (boxes[i][2], boxes[i][3]),
+    #             (0, 255, 0),
+    #             2,
+    #         )
 
-            xc = boxes[i][2] / 2 + boxes[i][0] / 2
-            if np.abs(xc) > np.abs(xc - im.shape[0]):
-                xc = (xc - 50).astype(np.uint64)
-            else:
-                xc = (xc + 15).astype(np.uint64)
-            yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
-            print(f"(xc,yc) = ({xc},{yc})")
+    #         xc = boxes[i][2] / 2 + boxes[i][0] / 2
+    #         if np.abs(xc) > np.abs(xc - im.shape[0]):
+    #             xc = (xc - 50).astype(np.uint64)
+    #         else:
+    #             xc = (xc + 15).astype(np.uint64)
+    #         yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
+    #         print(f"(xc,yc) = ({xc},{yc})")
 
-            try:
-                cv2.putText(
-                    im, target["label_str"][i], (xc,
-                                                 yc), 1, 0.8, (0, 255, 0), 1
-                )
-            except:
-                print(f'Length of label_str: {len(target["label_str"])}')
+    #         try:
+    #             cv2.putText(
+    #                 im, target["label_str"][i], (xc, yc), 1, 0.8, (0, 255, 0), 1
+    #             )
+    #         except:
+    #             print(f'Length of label_str: {len(target["label_str"])}')
 
-            DisplayTargetMask(target, i)
+    #         DisplayTargetMask(target, i)
 
-    # DisplayAllFaults(data_serie1.masks)
+    # # DisplayAllFaults(data_serie1.masks)
 
     DisplayImg(im)
 
