@@ -4,7 +4,6 @@ import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
 import components.torchvision_utilities.utils as utils
-from components.model_configuration.configure_model import setup_arg_parsing
 import torchvision
 import pandas as pd
 import numpy as np
@@ -135,7 +134,6 @@ def write_data_csv(configuration, data, root_dir, timestamp=False):
 
 
 def train():
-    args = setup_arg_parsing()
     configuration = load_configuration(args.ModelConf)
     root_dir, time_stamp = create_folder("solar_model", configuration)
     # Locate cpu or GPU

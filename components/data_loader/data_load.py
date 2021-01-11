@@ -407,10 +407,8 @@ def main():
     num = 11
     im, target = data_serie1.__getitem__(num)
     print(f'Fault label: {target["labels"].numpy()}')
-
     boxes = target["boxes"].numpy().astype(np.uint32)
     print(f"Boxes: {boxes}")
-
     print(f'Area: {target["area"]}')
 
     if len(boxes[0]) > 0:
