@@ -108,7 +108,7 @@ def evaluate(model, data_loader_test, device):
     return success_percent
 
 
-def load_configuration(filename):
+def load_configuration(filename=None):
     if filename == None:
         filename = "model_conf.json"
 
@@ -134,7 +134,7 @@ def write_data_csv(configuration, data, root_dir, timestamp=False):
 
 
 def train():
-    configuration = load_configuration(args.ModelConf)
+    configuration = load_configuration()
     root_dir, time_stamp = create_folder("solar_model", configuration)
     # Locate cpu or GPU
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -143,8 +143,8 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/combined_data/CellsCorr/"
-    mask_dir = "./data/combined_data/MaskGT/"
+    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
