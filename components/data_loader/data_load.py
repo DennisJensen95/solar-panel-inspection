@@ -236,9 +236,19 @@ class solar_panel_data:
 
             # Checks for disparity between number of unique numbers in the mask and amount of labels
             if find_error and (len(new_labels) is not len(obj_ids)):
+                if (len(new_labels) > len(obj_ids)) and len(obj_ids) != 0 and len(new_labels) != 0:
+                    newnewlabels = []
+                    for obj in obj_ids:
+                        newnewlabels.append(new_labels[obj-1])
+
+                    obj_ids = np.array(list(range(1,1+len(newnewlabels))))
+                    new_labels = newnewlabels
+                else:
+                    return True
+                
                 # print(f"At {idx}: {len(obj_ids)} unique objects and {len(new_labels)} labels")
                 # print(f'Discard: {img_path}')
-                return True
+
             # if find_error and (len(obj_ids) is not len(new_labels)):
             #     # print(obj_ids)
             #     # print(new_labels)
