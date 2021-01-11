@@ -4,6 +4,8 @@ import scipy.io as sci
 import cv2
 import glob
 import numpy as np
+import os
+import csv
 import pandas as pd
 
 # from fastai.vision.all import *
@@ -33,6 +35,7 @@ class solar_panel_data:
             )
             self.RemoveErrors(area_limit)
             print(f"Avaliable files: {len(self.files)}")
+
 
     def Load(self):
         """Load path to png images and labels/masks"""
@@ -73,6 +76,7 @@ class solar_panel_data:
             mask[114:119, 264:277] = 0
             # print("Found bad mask. Doing cleanup...")
 
+
         return mask
 
     def RemoveNoMatches(self, a, b, n_f, n_m):
@@ -93,6 +97,7 @@ class solar_panel_data:
 
     def RemoveNoLabels(self):
         """Removes measurements that does not contain a label"""
+
         names_m = []
         flag = False
         for i in range(len(self.masks)):
@@ -116,6 +121,7 @@ class solar_panel_data:
 
         # Update files list
         self.files = self.RemoveNoMatches(self.files, names_m, n_f, n_m)
+
 
     def RemoveErrors(self, area_limit):
         """Remove measurements where the area in a mask is too small.
@@ -361,6 +367,14 @@ class solar_panel_data:
 
     def get_number_of_classes(self):
         return len(self.label_dic)
+        
+    def print_csv(self):
+        with open("available_files.csv", "w", newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['CellsCorr', 'MaskGT'])
+
+            for i in range(len(self.files)):
+                writer.writerow(['../' + self.files[i], '../' + self.masks[i]])
 
 
 def DisplayTargetMask(target, idx):
@@ -393,12 +407,14 @@ def DisplayAllFaults(masks):
 
 
 def main():
+    # os.chdir('components')
+    os.chdir('../../')
+    print(os.getcwd())
     # Path to directories
-    ImageDir = "data/Serie1_CellsAndGT/CellsCorr/"
-    GTDir = "data/Serie1_CellsAndGT/MaskGT/"
+    ImageDir = "data/combined_data/CellsCorr/"
+    GTDir = "data/combined_data/MaskGT/"
 
     data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True)
-
     # data_serie1.PrintPaths()
 
     # num = 8499#8500#8512#8511#8697 #4494
