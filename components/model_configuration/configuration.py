@@ -35,10 +35,9 @@ class ConfActionStepOne:
 
     def get_configurations(self):
         configurations = [
-            # self.make_configuration("binary", "faster"),
             self.make_configuration(
                 "fault-classification",
-                "mask",
+                "faster",
                 learning_rate=0.005,
                 momentum=0.9,
                 weight_decay=0.0005,
@@ -47,14 +46,13 @@ class ConfActionStepOne:
             ),
             self.make_configuration(
                 "fault-classification",
-                "mask",
+                "faster",
                 learning_rate=0.00001,
                 momentum=0.9,
                 weight_decay=0.005,
                 step_size=3,
                 gamma=0.9,
             ),
-            # self.make_configuration("binary", "mask")
         ]
 
         return configurations

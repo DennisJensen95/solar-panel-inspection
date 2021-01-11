@@ -1,16 +1,18 @@
 # from components.torchvision_utilities.engine import train_one_epoch, evaluate
 from components.data_loader.data_load import solar_panel_data
-import components.torchvision_utilities.transforms as T
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
+import components.torchvision_utilities.utils as utils
 from components.model_configuration.configure_model import setup_arg_parsing
 import torchvision
 import pandas as pd
+import numpy as np
 import torch
 import json
 import copy
 import time
+import cv2
 import os
 
 
@@ -50,14 +52,6 @@ def create_folder(name, configuration):
 def create_results_folder(configuration):
     if not os.path.exists(results_folder):
         os.mkdir(results_folder)
-
-
-def get_transform(train):
-    transforms = []
-    transforms.append(T.ToTensor())
-    if train:
-        transforms.append(T.RandomHorizontalFlip(0.5))
-    return T.Compose(transforms)
 
 
 @torch.no_grad()
@@ -154,10 +148,12 @@ def train():
     img_dir = "./data/combined_data/CellsCorr/"
     mask_dir = "./data/combined_data/MaskGT/"
     dataset_train = solar_panel_data(
-        img_dir, mask_dir, filter=True, transforms=get_transform(train=True)
+        img_dir,
+        mask_dir,
+        filter=True,
+        mask=configuration["Model"],
     )
     dataset_test = copy.deepcopy(dataset_train)
-    dataset_test.transforms = get_transform(train=False)
 
     num_classes = dataset_train.get_number_of_classes()
     indices = torch.randperm(len(dataset_train)).tolist()
@@ -166,7 +162,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=2,
+        batch_size=1,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -181,7 +177,7 @@ def train():
     )
 
     # Predefined values
-    epochs = 1
+    epochs = 20
     i = 0
 
     # Optimizer
@@ -220,12 +216,8 @@ def train():
 
             # Check how bad
             losses.backward()
-
             # Be better
             optimizer.step()
-
-            # Optimize learning rate
-            lr_scheduler.step()
 
             # print statistics
             if i % 60 == 0:
@@ -251,6 +243,9 @@ def train():
             time_data.append(time.time() - start_time)
 
             i += 1
+
+        # Optimize learning rate
+        lr_scheduler.step()
 
     filename = create_filename(
         "solar_model",
