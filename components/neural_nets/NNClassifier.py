@@ -2,38 +2,8 @@ import torchvision
 import torch.nn as nn
 import torch
 import numpy as np
-
-
-def getCNNFeatureExtractVGG19(pretrained):
-    return torchvision.models.vgg19(pretrained=pretrained)
-
-
-def getCNNFeatureExtractALEX(pretrained):
-    return torchvision.models.alexnet(pretrained=True)
-
-
-def getCNNFeatureExtractRESNET152(pretrained):
-    return torchvision.models.resnet152(pretrained=pretrained)
-
-
-def getCNNFeatureExtractSQUEEZE(pretrained):
-    return torchvision.models.squeezenet1_1(pretrained=pretrained)
-
-
-def getCNNFeatureExtractDENSE(pretrained):
-    return torchvision.models.densenet161(pretrained=pretrained)
-
-
-def getCNNFeatureExtractINCEPTION(pretrained):
-    return torchvision.models.inception_v3(pretrained=pretrained)
-
-
-def getCNNFeatureExtractRESNEXT101(pretrained):
-    return torchvision.models.resnext101_32x8d(pretrained=pretrained)
-
-
-def getCNNFeatureExtractWIDE(pretrained):
-    return torchvision.models.wide_resnet101_2(pretrained=True)
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 
 def getFastRCNNResnet50Fpn(pretrained):
@@ -41,7 +11,7 @@ def getFastRCNNResnet50Fpn(pretrained):
 
 
 def getMaskRCNNResnet50Fpn(pretrained):
-    return torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=pretrained)
+    return torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=pretrained)
 
 
 def conv_out_features(model, shape):
@@ -49,40 +19,25 @@ def conv_out_features(model, shape):
     return int(np.prod(o.size()))
 
 
-def get_classifier(out_features, n_classes):
-    classifier = nn.Sequential(
-        nn.Linear(out_features, 512),
-        nn.ReLU(),
-        nn.Dropout(p=0.4),
-        nn.Linear(512, 512),
-        nn.ReLU(),
-        nn.Dropout(p=0.3),
-        nn.Linear(512, n_classes),
-        nn.Softmax(dim=1),
-    )
-    return classifier
-
-
 def ChooseModel(input, n_classes, freeze=False):
 
     if input == "faster":
         print(f"model is Faster RCNN resnet 50")
         model = getFastRCNNResnet50Fpn(pretrained=True)
-        out_features = model.roi_heads.box_predictor.cls_score.in_features
-        model.roi_heads.box_predictor.cls_score = get_classifier(
-            out_features, n_classes
-        )
+        if freeze:
+            for param in model.parameters():
+                param.requires_grad = False
+        in_features = model.roi_heads.box_predictor.cls_score.in_features
+        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, n_classes)
+
     elif input == "mask":
         print(f"model is Mask RCNN")
         model = getMaskRCNNResnet50Fpn(pretrained=True)
-        out_features = model.roi_heads.box_predictor.cls_score.in_features
-        model.roi_heads.box_predictor.cls_score = get_classifier(
-            out_features, n_classes
-        )
-
-    if freeze:
-        for param in model.parameters():
-            param.requires_grad = False
+        if freeze:
+            for param in model.parameters():
+                param.requires_grad = False
+        in_features = model.roi_heads.box_predictor.cls_score.in_features
+        model.roi_heads.box_predictor = MaskRCNNPredictor(in_features, 256, n_classes)
 
     return model
 

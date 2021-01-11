@@ -7,23 +7,30 @@ import numpy as np
 import os
 import csv
 import pandas as pd
-
-# from fastai.vision.all import *
 import torch
 import os
 
 
 class solar_panel_data:
-    def __init__(self, img_dir, gt_dir, transforms=None, filter=True, area_limit=100):
+    def __init__(
+        self,
+        img_dir,
+        gt_dir,
+        filter=True,
+        area_limit=100,
+        mask="faster",
+    ):
+        if mask == "mask":
+            self.mask = True
+        else:
+            self.mask = False
+
         self.ImageDir = img_dir + "*"
         self.GTDir = gt_dir + "*"
 
-        self.transforms = transforms
-
         self.files, self.masks = self.Load()
 
-        self.label_dic = {"Crack A": 1, "Crack B": 2,
-                          "Crack C": 3, "Finger Failure": 4}
+        self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
 
         if filter:
             print("Removing files without labels from path...")
@@ -35,7 +42,6 @@ class solar_panel_data:
             )
             self.RemoveErrors(area_limit)
             print(f"Avaliable files: {len(self.files)}")
-
 
     def Load(self):
         """Load path to png images and labels/masks"""
@@ -76,7 +82,6 @@ class solar_panel_data:
             mask[114:119, 264:277] = 0
             # print("Found bad mask. Doing cleanup...")
 
-
         return mask
 
     def RemoveNoMatches(self, a, b, n_f, n_m):
@@ -86,8 +91,8 @@ class solar_panel_data:
             [list]: [image paths with corresponding mask]
         """
         # Beware of the index!!
-        names = [w[(n_f + 19): -4] for w in a]
-        names_m = [w[(n_m + 18): -4] for w in b]
+        names = [w[(n_f + 19) : -4] for w in a]
+        names_m = [w[(n_m + 18) : -4] for w in b]
 
         # Only keep strings that occur in each list
         names = [x for x in names if x in names_m]
@@ -122,7 +127,6 @@ class solar_panel_data:
         # Update files list
         self.files = self.RemoveNoMatches(self.files, names_m, n_f, n_m)
 
-
     def RemoveErrors(self, area_limit):
         """Remove measurements where the area in a mask is too small.
         The function also checks for errors in the given data such as
@@ -153,8 +157,7 @@ class solar_panel_data:
             print("------------------------")
 
     def ResizeMasks(self, masks, resized_size):
-        resized_mask = np.resize(
-            masks, (len(masks), resized_size[0], resized_size[1]))
+        resized_mask = np.resize(masks, (len(masks), resized_size[0], resized_size[1]))
         return resized_mask
 
     def ResizeBoundingBox(self, boxes, orig_shape, resized_size):
@@ -242,25 +245,19 @@ class solar_panel_data:
 
             # Checks for disparity between number of unique numbers in the mask and amount of labels
             if find_error and (len(new_labels) is not len(obj_ids)):
-                if (len(new_labels) > len(obj_ids)) and len(obj_ids) != 0 and len(new_labels) != 0:
+                if (
+                    (len(new_labels) > len(obj_ids))
+                    and len(obj_ids) != 0
+                    and len(new_labels) != 0
+                ):
                     newnewlabels = []
                     for obj in obj_ids:
-                        newnewlabels.append(new_labels[obj-1])
+                        newnewlabels.append(new_labels[obj - 1])
 
-                    obj_ids = np.array(list(range(1,1+len(newnewlabels))))
+                    obj_ids = np.array(list(range(1, 1 + len(newnewlabels))))
                     new_labels = newnewlabels
                 else:
                     return True
-                
-                # print(f"At {idx}: {len(obj_ids)} unique objects and {len(new_labels)} labels")
-                # print(f'Discard: {img_path}')
-
-            # if find_error and (len(obj_ids) is not len(new_labels)):
-            #     # print(obj_ids)
-            #     # print(new_labels)
-            #     print(f'{len(obj_ids)} unique objects and {len(new_labels)} labels')
-            #     print(f'Discard: {img_path}')
-            #     return True
 
             # get bounding box coordinates for each mask
             boxes = []
@@ -278,23 +275,15 @@ class solar_panel_data:
 
         boxes = self.ResizeBoundingBox(boxes, orig_img_size, (224, 224))
 
-
         # Checks for disparity between number of bounding boxes and unique numbers
         # I.e. if two clusters in the mask has the same number
         if find_error and (len(boxes) is not len(obj_ids)):
-            # print(f"At {idx}: {len(obj_ids)} unique objects and {len(boxes)} bounding boxes")
-            # print(f'Discard: {img_path}')
             return True
 
         # Convert to tensor to calculate area easily
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         area = torch.as_tensor(area, dtype=torch.float32)
-
-        # print(f'Area before check: {area}')
-        # print(f'Labels: {new_labels}')
-        # print(f'Length of labels: {len(new_labels)}')
-        # print(f'Length of masks: {len(masks)}')
 
         # Area check (if there are any labels/areas)
         if Labels.size > 0:
@@ -313,8 +302,7 @@ class solar_panel_data:
 
         # convert everything into a torch.Tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        labels = torch.as_tensor(
-            self.__getlabel__(new_labels), dtype=torch.int64)
+        labels = torch.as_tensor(self.__getlabel__(new_labels), dtype=torch.int64)
         masks = torch.as_tensor(masks, dtype=torch.uint8)
         image_id = torch.tensor([idx])
 
@@ -323,8 +311,7 @@ class solar_panel_data:
             if len(new_labels) > 0:
                 if find_error:
                     return False
-                area = (boxes[:, 3] - boxes[:, 1]) * \
-                    (boxes[:, 2] - boxes[:, 0])
+                area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
 
             else:  # If no more areas are left that can be used, we must let the program know to completely remove the file
                 boxes = torch.as_tensor([[]], dtype=torch.float32)
@@ -337,12 +324,12 @@ class solar_panel_data:
         target = {}
         target["boxes"] = boxes
         target["labels"] = labels
-        target["masks"] = masks
+        if self.mask:
+            target["masks"] = masks
         target["image_id"] = image_id
         target["area"] = area
 
-        if self.transforms is not None:
-            img, target = self.transforms(img, target)
+        img = torch.from_numpy(np.reshape(img, (3, 224, 224)))
 
         return img, target
 
@@ -367,14 +354,14 @@ class solar_panel_data:
 
     def get_number_of_classes(self):
         return len(self.label_dic)
-        
+
     def print_csv(self):
-        with open("available_files.csv", "w", newline='') as f:
+        with open("available_files.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(['CellsCorr', 'MaskGT'])
+            writer.writerow(["CellsCorr", "MaskGT"])
 
             for i in range(len(self.files)):
-                writer.writerow(['../' + self.files[i], '../' + self.masks[i]])
+                writer.writerow(["../" + self.files[i], "../" + self.masks[i]])
 
 
 def DisplayTargetMask(target, idx):
@@ -408,56 +395,46 @@ def DisplayAllFaults(masks):
 
 def main():
     # os.chdir('components')
-    os.chdir('../../')
+    os.chdir("../../")
     print(os.getcwd())
     # Path to directories
     ImageDir = "data/combined_data/CellsCorr/"
     GTDir = "data/combined_data/MaskGT/"
 
     data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True)
-    # data_serie1.PrintPaths()
 
     # num = 8499#8500#8512#8511#8697 #4494
     num = 11
     im, target = data_serie1.__getitem__(num)
-    # print(f'Fault string: {target["label_str"]}')
     print(f'Fault label: {target["labels"].numpy()}')
 
     boxes = target["boxes"].numpy().astype(np.uint32)
     print(f"Boxes: {boxes}")
 
     print(f'Area: {target["area"]}')
-    print(f'Number of masks: {len(target["masks"])}')
 
-    # if len(boxes[0]) > 0:
-    #     for i in range(len(boxes)):
-    #         print(im.shape)
-    #         cv2.rectangle(
-    #             im,
-    #             (boxes[i][0], boxes[i][1]),
-    #             (boxes[i][2], boxes[i][3]),
-    #             (0, 255, 0),
-    #             2,
-    #         )
+    if len(boxes[0]) > 0:
+        for i in range(len(boxes)):
+            print(im.shape)
+            cv2.rectangle(
+                im,
+                (boxes[i][0], boxes[i][1]),
+                (boxes[i][2], boxes[i][3]),
+                (0, 255, 0),
+                2,
+            )
 
-    #         xc = boxes[i][2] / 2 + boxes[i][0] / 2
-    #         if np.abs(xc) > np.abs(xc - im.shape[0]):
-    #             xc = (xc - 50).astype(np.uint64)
-    #         else:
-    #             xc = (xc + 15).astype(np.uint64)
-    #         yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
-    #         print(f"(xc,yc) = ({xc},{yc})")
+            xc = boxes[i][2] / 2 + boxes[i][0] / 2
+            if np.abs(xc) > np.abs(xc - im.shape[0]):
+                xc = (xc - 50).astype(np.uint64)
+            else:
+                xc = (xc + 15).astype(np.uint64)
+            yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
+            print(f"(xc,yc) = ({xc},{yc})")
 
-    #         try:
-    #             cv2.putText(
-    #                 im, target["label_str"][i], (xc, yc), 1, 0.8, (0, 255, 0), 1
-    #             )
-    #         except:
-    #             print(f'Length of label_str: {len(target["label_str"])}')
+            # DisplayTargetMask(target, i)
 
-    #         DisplayTargetMask(target, i)
-
-    # # DisplayAllFaults(data_serie1.masks)
+    # DisplayAllFaults(data_serie1.masks)
 
     DisplayImg(im)
 

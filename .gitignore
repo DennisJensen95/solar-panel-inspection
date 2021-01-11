@@ -17,3 +17,10 @@ Results-folder
 
 # Pycharm
 .idea
+
+# model configuration
+model_conf.json
+
+# 
+*.asv
+*.csv
