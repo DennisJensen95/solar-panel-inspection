@@ -18,7 +18,7 @@ class solar_panel_data:
         gt_dir,
         filter=True,
         area_limit=100,
-        mask="faster",
+        mask="faster"
     ):
         if mask == "mask":
             self.mask = True
@@ -31,8 +31,14 @@ class solar_panel_data:
         self.files, self.masks = self.Load()
 
         self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
-
-        if filter:
+        
+        self.csv_filepath = "./data/available_files.csv"
+        
+        if os.path.exists(self.csv_filepath):
+            print("Load csv")
+            self.load_csv()
+        
+        elif filter:
             print("Removing files without labels from path...")
             print(f"Avaliable files: {len(self.files)}")
             self.RemoveNoLabels()
@@ -42,6 +48,10 @@ class solar_panel_data:
             )
             self.RemoveErrors(area_limit)
             print(f"Avaliable files: {len(self.files)}")
+            self.print_csv()
+        
+        
+        
 
     def Load(self):
         """Load path to png images and labels/masks"""
@@ -356,13 +366,18 @@ class solar_panel_data:
         return len(self.label_dic)
 
     def print_csv(self):
-        with open("available_files.csv", "w", newline="") as f:
+        with open("./data/available_files.csv", "w+", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["CellsCorr", "MaskGT"])
 
             for i in range(len(self.files)):
-                writer.writerow(["../" + self.files[i], "../" + self.masks[i]])
-
+                writer.writerow([self.files[i], self.masks[i]])
+    
+    def load_csv(self):
+        dataframe = pd.read_csv("./data/available_files.csv")
+        self.files = dataframe["CellsCorr"]
+        self.masks = dataframe["MaskGT"]
+        
 
 def DisplayTargetMask(target, idx):
     mask = target["masks"][idx].numpy()
@@ -392,6 +407,28 @@ def DisplayAllFaults(masks):
             print(Labelstemp)
             print(i)
 
+def DisplayBoundingBoxes(im, boxes, time):
+    boxes = boxes.numpy().astype(np.uint32)
+    if len(boxes[0]) > 0:
+        for i in range(len(boxes)):
+            cv2.rectangle(
+                im,
+                (boxes[i][0], boxes[i][1]),
+                (boxes[i][2], boxes[i][3]),
+                (0, 255, 0),
+                2,
+            )
+
+            xc = boxes[i][2] / 2 + boxes[i][0] / 2
+            if np.abs(xc) > np.abs(xc - im.shape[0]):
+                xc = (xc - 50).astype(np.uint64)
+            else:
+                xc = (xc + 15).astype(np.uint64)
+            yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
+            print(f"(xc,yc) = ({xc},{yc})")
+    
+    cv2.imshow("Image boxes", im)
+    cv2.waitKey(time)
 
 def main():
     # os.chdir('components')
