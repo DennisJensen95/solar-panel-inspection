@@ -1,9 +1,10 @@
 # from components.torchvision_utilities.engine import train_one_epoch, evaluate
-from components.data_loader.data_load import solar_panel_data
+from components.data_loader.data_load import solar_panel_data, DisplayBoundingBoxes, DisplayMasks
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
 import components.torchvision_utilities.utils as utils
+import argparse as ap
 import torchvision
 import pandas as pd
 import numpy as np
@@ -89,8 +90,6 @@ def evaluate(model, data_loader_test, device):
             )
 
             if success:
-                # print(f'Targets_success: {targets_success}')
-                # print(f'Overlaps: {overlaps}')
                 for val in targets_success:
                     success_array.append(val)
             else:
@@ -126,20 +125,28 @@ def write_data_csv(configuration, data, root_dir, timestamp=False):
         "solar_model_data",
         configuration["Model"],
         configuration["Classification"],
-        timestamp,
+        timestamp
     )
 
     data_frame = pd.DataFrame(data)
     data_frame.to_csv(root_dir + "/" + filename)
 
+def setup_arg_parsing():
+    parser = ap.ArgumentParser()
+    parser.add_argument('--debug', help='debug flag help')
+    args = parser.parse_args()
+    
+    return args
 
 def train():
+    args = setup_arg_parsing()
+    debug = True if args.debug != None else False
     configuration = load_configuration()
     root_dir, time_stamp = create_folder("solar_model", configuration)
     # Locate cpu or GPU
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    model = ChooseModel(configuration["Model"], configuration["Labels"], freeze=False)
+    model = ChooseModel(configuration["Model"], configuration["Labels"], freeze=True)
     model.to(device)
 
     # Initialize data loader
@@ -150,8 +157,11 @@ def train():
         mask_dir,
         filter=True,
         mask=configuration["Model"],
+        train=True
     )
+
     dataset_test = copy.deepcopy(dataset_train)
+    dataset_test.train = False
 
     num_classes = dataset_train.get_number_of_classes()
     indices = torch.randperm(len(dataset_train)).tolist()
@@ -160,7 +170,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=1,
+        batch_size=2,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -173,18 +183,27 @@ def train():
         num_workers=4,
         collate_fn=utils.collate_fn,
     )
-
+    
+    if debug and configuration["Model"] == "Faster":
+        for images, targets in iter(data_loader_train):
+            DisplayBoundingBoxes(images[0], targets[0]["boxes"], 5)
+    elif debug and configuration["Model"] == "mask":
+        for images, targets in iter(data_loader_train):
+            DisplayBoundingBoxes(images[0], targets[0]["boxes"], 5)
+            # print(len(targets))
+            DisplayMasks(images[0], targets[0])
+            
+    
     # Predefined values
-    epochs = 20
+    epochs = 15
     i = 0
 
     # Optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-
-    optimizer = torch.optim.SGD(
+    
+    optimizer = torch.optim.Adam(
         params,
         lr=configuration["LearningRate"],
-        momentum=configuration["Momentum"],
         weight_decay=configuration["WeightDecay"],
     )
 
@@ -206,6 +225,7 @@ def train():
         for images, targets in data_iter_train:
             # Move images and targets to GPU
             images = list(image.to(device) for image in images)
+            
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             optimizer.zero_grad()

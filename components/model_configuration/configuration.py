@@ -38,21 +38,21 @@ class ConfActionStepOne:
             self.make_configuration(
                 "fault-classification",
                 "faster",
-                learning_rate=0.005,
+                learning_rate=0.05,
                 momentum=0.9,
-                weight_decay=0.0005,
+                weight_decay=0.05,
                 step_size=3,
-                gamma=0.7,
+                gamma=0.1,
             ),
             self.make_configuration(
                 "fault-classification",
                 "faster",
                 learning_rate=0.00001,
-                momentum=0.9,
-                weight_decay=0.005,
+                momentum=0.1,
+                weight_decay=0.0000005,
                 step_size=3,
                 gamma=0.9,
-            ),
+            )
         ]
 
         return configurations

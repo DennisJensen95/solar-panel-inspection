@@ -9,6 +9,10 @@ import csv
 import pandas as pd
 import torch
 import os
+import torchvision.transforms.functional as TF
+from torchvision import transforms
+import random
+from PIL import Image
 
 
 class solar_panel_data:
@@ -16,6 +20,7 @@ class solar_panel_data:
         self,
         img_dir,
         gt_dir,
+        train,
         filter=True,
         area_limit=100,
         mask="faster"
@@ -34,6 +39,8 @@ class solar_panel_data:
         
         self.csv_filepath = "./data/available_files.csv"
         
+        self.train = train
+        
         if os.path.exists(self.csv_filepath):
             print("Load csv")
             self.load_csv()
@@ -48,9 +55,7 @@ class solar_panel_data:
             )
             self.RemoveErrors(area_limit)
             print(f"Avaliable files: {len(self.files)}")
-            self.print_csv()
-        
-        
+            self.print_csv()    
         
 
     def Load(self):
@@ -186,6 +191,71 @@ class solar_panel_data:
             resized_boxes.append([xmin, ymin, xmax, ymax])
 
         return resized_boxes
+    
+
+    def transform_mask(self, image, masks, train):
+        # Resize
+        # print(f'Before resize: {np.shape(np.array(masks))}')
+
+        trans1 = transforms.ToTensor()
+
+        resize = transforms.Resize(size=(224, 224))
+        image = resize(image)
+        
+        new_masks = []
+        for i, mask in enumerate(masks):
+            new_masks.append(resize(mask))
+        masks = new_masks
+
+
+        # # Random horizontal flipping
+        # if random.random() > 0.5 and train:
+        #     image = TF.hflip(image)
+        #     new_masks = []
+        #     for i, mask in enumerate(masks):
+        #         new_masks.append(TF.hflip(mask))
+        #     masks = new_masks
+
+        # # Random vertical flipping
+        # if random.random() > 0.5 and train:
+        #     image = TF.vflip(image)
+        #     new_masks = []
+        #     for i, mask in enumerate(masks):
+        #         new_masks.append(TF.vflip(mask))
+        #     masks = new_masks
+
+
+        # Transform to tensor
+        image = TF.to_tensor(image)
+        new_masks = []
+        for i, mask in enumerate(masks):
+            # new_masks.append(TF.to_tensor(mask))
+            new_masks.append(np.asarray(mask))
+        
+        # masks = TF.to_tensor(np.array(new_masks))
+
+        masks = torch.as_tensor(np.asarray(new_masks), dtype=torch.uint8)
+        # masks = new_masks
+        
+        return image, masks
+    
+    def transform_image(self, image, train):
+        # Resize
+        resize = transforms.Resize(size=(224, 224))
+        image = resize(image)
+        
+        # Random horizontal flipping
+        if random.random() > 0.5 and train:
+            image = TF.hflip(image)
+
+        # Random vertical flipping
+        if random.random() > 0.5 and train:
+            image = TF.vflip(image)
+            
+        # Transform to tensor
+        image = TF.to_tensor(image)
+        
+        return image
 
     def __getitem__(self, idx, find_error=False, area_limit=100):
         """Method to load data
@@ -221,9 +291,9 @@ class solar_panel_data:
         mask = GT["GTMask"]  # fault mask
         # Load example image
 
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        orig_img_size = img.shape
-        img = cv2.resize(img, (224, 224))
+        img = Image.open(img_path)
+        img = img.convert('RGB')
+        orig_img_size = np.shape(img)
 
         # Check if this mask is found to be errenous
         mask = self.CleanErrors(img_path, mask)
@@ -236,7 +306,6 @@ class solar_panel_data:
             masks = mask
 
         else:  # Start checking for bounding boxes
-
             # Construct an array of labels
             new_labels = []
             for i in range(len(Labels[0])):
@@ -252,6 +321,7 @@ class solar_panel_data:
             # of binary masks
             masks = mask == obj_ids[:, None, None]
             masks = masks.astype(np.uint8)
+            
 
             # Checks for disparity between number of unique numbers in the mask and amount of labels
             if find_error and (len(new_labels) is not len(obj_ids)):
@@ -313,7 +383,6 @@ class solar_panel_data:
         # convert everything into a torch.Tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         labels = torch.as_tensor(self.__getlabel__(new_labels), dtype=torch.int64)
-        masks = torch.as_tensor(masks, dtype=torch.uint8)
         image_id = torch.tensor([idx])
 
         # Calculate new area matrix
@@ -330,6 +399,17 @@ class solar_panel_data:
                 if find_error:
                     return True
 
+        new_masks = []
+        for i, mask in enumerate(masks):
+            new_masks.append(Image.fromarray(mask))
+        
+        masks = new_masks
+        
+        if self.mask:
+            img, masks = self.transform_mask(img, masks, self.train)
+        else:
+            img = self.transform_image(img, self.train)
+            
         # Construct target dictionary
         target = {}
         target["boxes"] = boxes
@@ -337,9 +417,7 @@ class solar_panel_data:
         if self.mask:
             target["masks"] = masks
         target["image_id"] = image_id
-        target["area"] = area
-
-        img = torch.from_numpy(np.reshape(img, (3, 224, 224)))
+        target["area"] = area  
 
         return img, target
 
@@ -379,15 +457,15 @@ class solar_panel_data:
         self.masks = dataframe["MaskGT"]
         
 
-def DisplayTargetMask(target, idx):
-    mask = target["masks"][idx].numpy()
+def DisplayTargetMask(mask, idx):
+    mask = transform_torch_to_cv2(mask[idx], 1)
     mask = mask * 255
 
     # Show image
     cv2.imshow("Image", mask)
     # Show image
     # cv2.imshow('Image', im)
-    cv2.waitKey(0)
+    cv2.waitKey(500)
     cv2.destroyAllWindows()
 
 
@@ -409,6 +487,7 @@ def DisplayAllFaults(masks):
 
 def DisplayBoundingBoxes(im, boxes, time):
     boxes = boxes.numpy().astype(np.uint32)
+    im = transform_torch_to_cv2(im)
     if len(boxes[0]) > 0:
         for i in range(len(boxes)):
             cv2.rectangle(
@@ -425,24 +504,38 @@ def DisplayBoundingBoxes(im, boxes, time):
             else:
                 xc = (xc + 15).astype(np.uint64)
             yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
-            print(f"(xc,yc) = ({xc},{yc})")
+            # print(f"(xc,yc) = ({xc},{yc})")
     
     cv2.imshow("Image boxes", im)
-    cv2.waitKey(time)
+    cv2.waitKey(500)
 
+def DisplayMasks(im, target):
+    masks = target["masks"]
+    for i in range(len(masks)):
+        DisplayTargetMask(masks, i)
+
+def transform_torch_to_cv2(image, channels=3):
+    transform = transforms.ToPILImage()
+        
+    image = np.array(transform(image))
+    # print(np.shape(image))
+    image = np.reshape(image, (224, 224, channels))
+    
+    return image
+    
 def main():
     # os.chdir('components')
-    os.chdir("../../")
-    print(os.getcwd())
     # Path to directories
     ImageDir = "data/combined_data/CellsCorr/"
     GTDir = "data/combined_data/MaskGT/"
 
-    data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True)
+    data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True, mask="mask", train=False)
 
     # num = 8499#8500#8512#8511#8697 #4494
     num = 11
     im, target = data_serie1.__getitem__(num)
+    im = transform_torch_to_cv2(im)
+    
     print(f'Fault label: {target["labels"].numpy()}')
     boxes = target["boxes"].numpy().astype(np.uint32)
     print(f"Boxes: {boxes}")
