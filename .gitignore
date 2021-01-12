@@ -21,6 +21,11 @@ Results-folder
 # model configuration
 model_conf.json
 
-# 
+# Ignore data folder
+data
+
+# Data produce 
 *.asv
 *.csv
+
+
