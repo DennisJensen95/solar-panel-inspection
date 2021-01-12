@@ -15,9 +15,9 @@ import copy
 def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    folder_name = "solar_model_faster_fault-classification_20210111-224932"
+    folder_name = "solar_model_mask_fault-classification_20210112-222104"
 
-    model_path = "/home/theis/solar-inspect/solar-panel-inspection/Results-folder/" + folder_name
+    model_path = "./Results-folder/" + folder_name
 
     conf = load_configuration(model_path + "/model_conf.json")
 
@@ -28,12 +28,14 @@ def main():
     # ------ LOAD DATA ------------
 
     # Initialize data loader
-    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+    img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
-        filter=True
+        filter=True,
+        mask="mask",
+        train=False
     )
     dataset_test = copy.deepcopy(dataset_train)
     dataset_test.transforms = get_transform(train=False)
@@ -59,8 +61,14 @@ def main():
         collate_fn=utils.collate_fn,
     )
 
-    success_percentage = evaluate(model, data_loader_test, device, show_plot=True)
-    print(f"Accuracy: {success_percentage*100}")
+    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device, show_plot=True)
+    
+    print(f'Targets found: {success_percent} percent')
+    print(f'Mean accuracy: {accuracy}')
+    print(f'Confusion matrix:')
+    print(f'n={len(dataset_test)}        |    Predicted Yes   |   Predicted No')
+    print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
+    print(f'Actual No   |        {Fpos}          |       {Tneg}')
     
 
 if __name__ == "__main__":

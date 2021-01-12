@@ -1,5 +1,5 @@
 # from components.torchvision_utilities.engine import train_one_epoch, evaluate
-from components.data_loader.data_load import solar_panel_data
+from components.data_loader.data_load import solar_panel_data, transform_torch_to_cv2
 import components.torchvision_utilities.transforms as T
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
@@ -24,12 +24,15 @@ def get_transform(train):
     return T.Compose(transforms)
 
 
-def plot_w_bb(im, target, target_pred, targets_success):
+def plot_w_bb(im, target, target_pred, targets_success, predict_success):
 
-    print(target)
-    print(target_pred)
+    # print(target)
+    # print(target_pred)
 
-    im = np.reshape(im, (224, 224, 3))
+    # im = np.reshape(im, (224, 224, 3))
+
+    im = transform_torch_to_cv2(im)
+
 
     cv2.imshow("Image", im)
     cv2.waitKey(0)
@@ -52,7 +55,7 @@ def plot_w_bb(im, target, target_pred, targets_success):
             if np.abs(xc) > np.abs(xc - im.shape[0]):
                 xc = (xc - 50).astype(np.uint64)
             else:
-                xc = (xc + 15).astype(np.uint64)
+                xc = (xc + 25).astype(np.uint64)
             yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
 
             try:
@@ -69,18 +72,22 @@ def plot_w_bb(im, target, target_pred, targets_success):
 
     image = copy.copy(im)
 
-    print(boxes_pred)
+    if len(boxes_pred) == 0:
+        print("No predictions")
+        return 
+    
     if len(boxes_pred[0]) > 0:
-        for i in range(len(boxes_pred)):
-            if i<len(targets_success):
-                if targets_success[i] == 1:
+        for i in range(len(predict_success)):
+            if i<len(predict_success):
+                print(predict_success)
+                if predict_success[i]:
                     color = (0, 255, 0)
                 else:
                     color = (0, 0, 255)
             else:
                 color = (0, 0, 255)
             
-            im = copy.copy(image)
+            # im = copy.copy(image)
             cv2.rectangle(
                 im,
                 (boxes_pred[i][0], boxes_pred[i][1]),
@@ -93,7 +100,7 @@ def plot_w_bb(im, target, target_pred, targets_success):
             if np.abs(xc) > np.abs(xc - im.shape[0]):
                 xc = (xc - 50).astype(np.uint64)
             else:
-                xc = (xc + 15).astype(np.uint64)
+                xc = (xc + 25).astype(np.uint64)
             yc = ((boxes_pred[i][3] / 2 + boxes_pred[i][1] / 2)).astype(np.uint64)
 
             try:
@@ -103,11 +110,14 @@ def plot_w_bb(im, target, target_pred, targets_success):
             except:
                 print("Cannot print labels")
             
+            if i > 7:
+                break
+            
             print(f'Score: {target_pred["scores"][i].numpy()}')
             # Show image
-            cv2.imshow("Image", im)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+        cv2.imshow("Image", im)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 @torch.no_grad()
@@ -123,7 +133,14 @@ def evaluate(model, data_loader_test, device, show_plot=True):
     # Put in evaluation mode
     model.eval()
 
-    success_array = []
+    Tpos_vec = 0
+    Fpos_vec = 0
+    Fneg_vec = 0
+    Tneg_vec = 0
+    accuracy_vec = []
+
+    success_vec = []
+
     pics = 0
 
     data_iter_test = iter(data_loader_test)
@@ -138,40 +155,47 @@ def evaluate(model, data_loader_test, device, show_plot=True):
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time
 
-        for i, image in enumerate(outputs):
+        for i, prediction in enumerate(outputs):
             pics = pics + 1
-            logger.__load__(image, targets[i])
-            label, score = logger.get_highest_predictions(score_limit=0.1)
-            success, targets_success, overlaps = logger.get_success_w_box_overlap(
-                label, score, overlap_limit=0.1
-            )
+            logger.__load__(targets[i], prediction)
+            label, score = logger.get_highest_predictions(score_limit=0.5)
+            print(score)
+            data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
+            Tpos, Fpos, Fneg, Tneg = data
+            
+            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            
+            accuracy_vec.append(accuracy)
+            Tpos_vec+=Tpos
+            Fpos_vec+=Fpos
+            Fneg_vec+=Fneg
+            Tneg_vec+=Tneg
 
-            if success:
-                # print(f'Targets_success: {targets_success}')
-                # print(f'Overlaps: {overlaps}')
+            if targets_success is not None:
                 for val in targets_success:
-                    success_array.append(val)
-            else:
-                n_targ = len(targets[i]["labels"])
-                for k in range(n_targ):
-                    success_array.append(0)
+                    if val != 0:
+                        success_vec.append(1)
+                    else:
+                        success_vec.append(0)
+                    
             
             if show_plot:
-                print(f'Labels success: {label}')
-                print(f'Targets success: {targets_success}')
+                # print(f'Labels success: {label}')
+                # print(f'Targets success: {targets_success}')
                 if targets_success is not None:
-                    plot_w_bb(billeder[i].numpy(), targets[i], image, targets_success)
-                    show_plot = False
+                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success )
+                    # show_plot = True
 
-
-    success_percent = success_array.count(1) / len(success_array)
-
-    # Put back in train mode
-    model.train()
+    success_percent = success_vec.count(1) / len(success_vec)
+    
+    # data = sum(accuracy_vec) / len(accuracy_vec)
 
     torch.set_num_threads(n_threads)
 
-    return success_percent
+    # Set back in training mode
+    model.train()
+
+    return sum(accuracy_vec)/len(accuracy_vec), success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
 
 
 def load_configuration(filename):

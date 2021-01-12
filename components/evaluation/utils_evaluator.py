@@ -9,9 +9,9 @@ class LogHelpers:
         self.img = []
         self.tar = []
 
-    def __load__(self, image, target):
-        self.img = image
+    def __load__(self, target, image):
         self.tar = target
+        self.img = image
 
     def _get_existing_labels(self):
         fault = LabelEncoder()
@@ -26,17 +26,17 @@ class LogHelpers:
        
 
         if len(self.img["scores"] > 0):
-            percentage_certainty = self.img["scores"][0].numpy()
+            score = self.img["scores"][0].numpy()
             label = labels.get(int(self.img["labels"][0].numpy()), "Out of bounds")
 
-            return label, percentage_certainty
+            return label, score
 
         return "No Prediction", 0
 
     def get_highest_predictions(self, score_limit=0.90):
         labels = self._get_existing_labels()
 
-        percentage_certainty = []
+        score = []
         label = []
 
         # Check if there are any predictions
@@ -49,26 +49,102 @@ class LogHelpers:
                     label.append(
                         labels.get(int(self.img["labels"][i].numpy()), "Out of bounds")
                     )
-                    percentage_certainty.append(float(self.img["scores"][i].numpy()))
+                    score.append(float(self.img["scores"][i].numpy()))
                 else:  # at this point, all other scores are lower, so we break the loop
                     break
 
             # return what we obtained
-            
-            return label, percentage_certainty
+            return label, score
 
         # if no score is above the threshold, we return the highest score
         elif len(self.img["scores"]) > 0 and self.img["scores"][0] < score_limit:
-            return self._get_highest_prediction()
+            # return self._get_highest_prediction()
+            return "No Prediction", 0
 
         else:
             # if no prediction is made, we return default
             return "No Prediction", 0
 
-    def get_success_w_box_overlap(self, label, score, overlap_limit=0.3):
+    def calc_accuracy(self, score, overlap_limit=0.3):
+
+        Tpos = 0
+        Tneg = 0
+        Fpos = 1
+        Fneg = 1
 
         if score == 0:
-            return False, None, None
+            n_preds = 0
+        else:
+            try:
+                n_preds = score.size  # Amount of predictions made
+            except:
+                n_preds = len(score)
+        n_targets = len(self.tar["labels"])  # Amount of target predictions
+
+        boxes_pred = self.img["boxes"].numpy()
+        boxes_targ = self.tar["boxes"].numpy()
+
+
+        # Stores success of target prediction
+        target_success = np.zeros(n_targets)
+        predict_success = np.zeros(n_preds)
+        # First the positives
+        for i in range(n_preds):
+            current_pred = self.img["labels"][i]
+            for j in range(n_targets):
+                current_targ = self.tar["labels"][j]
+
+                # If prediction has already been linked to target, skip this iteration
+                if predict_success[i] != 0:
+                    continue
+
+                # If labels of prediction and target are equal, move on
+                if torch.all(current_pred.eq(current_targ)):
+                    # Calculate overlap
+                    overlap = self._calc_overlap(boxes_pred[i], boxes_targ[j])
+                    # If bounding boxes also overlap enough, the prediction is a success
+                    if overlap > overlap_limit:
+                        target_success[j] = True
+                        predict_success[i] = True
+        
+        Fpos = (predict_success == False).sum()
+        Tpos = n_preds - Fpos
+        # Stores success of target prediction
+        n_fails = len(boxes_pred)-n_preds
+        predict_failure = np.zeros(n_fails)
+
+        # Then the negatives
+        for k in range(n_fails):
+            i = k + n_preds
+            current_pred = self.img["labels"][i]
+            for j in range(n_targets):
+                current_targ = self.tar["labels"][j]
+
+                # If prediction has already been linked to target, skip this iteration
+                if predict_failure[k] != 0:
+                    continue
+
+                # If labels of prediction and target are equal, move on
+                if torch.all(current_pred.eq(current_targ)):
+                    # Calculate overlap
+                    overlap = self._calc_overlap(boxes_pred[i], boxes_targ[j])
+                    # If bounding boxes also overlap enough, the prediction is a success
+                    if overlap > overlap_limit:
+                        predict_failure[k] = j
+
+        Tneg = (predict_failure == 0).sum()
+        Fneg = len(predict_failure) - Tneg
+
+        # print(f'TP: {Tpos}, FP: {Fpos}, FN: {Fneg}, TN: {Tneg}')
+        # print(f'Targets found: {n_targets-(target_success == 0).sum()} out of {n_targets}')
+
+        return (Tpos, Fpos, Fneg, Tneg), target_success, predict_success
+
+
+    def get_success_w_box_overlap(self, score, overlap_limit=0.3):
+
+        if score == 0:
+            return None
         else:
             try:
                 n_preds = score.size  # Amount of predictions made
@@ -82,7 +158,6 @@ class LogHelpers:
             # Stores success of target prediction
             target_success = np.zeros(n_targets)
             predict_success = np.zeros(n_preds)
-            overlaps = np.zeros(n_targets)
 
             # Determine if prediction is correct
             for i in range(n_preds):
@@ -95,7 +170,7 @@ class LogHelpers:
                     current_targ = self.tar["labels"][j]
 
                     # If prediction has already been linked to target, skip this iteration
-                    if predict_success[i] == 1:
+                    if predict_success[i] != 0 or target_success[j] != 0:
                         continue
 
                     # If labels of prediction and target are equal, move on
@@ -104,13 +179,12 @@ class LogHelpers:
                         overlap = self._calc_overlap(boxes_pred[i], boxes_targ[j])
                         # If bounding boxes also overlap enough, the prediction is a success
                         if overlap > overlap_limit:
-                            target_success[j] = 1
-                            predict_success[i] = 1
-                            overlaps[j] = overlap
+                            target_success[j] = i
+                            predict_success[i] = j
 
                             # print(f"Correct prediction of label {current_targ} with {overlap} percent overlap")
 
-            return True, target_success, overlaps
+            return target_success, predict_success
 
     """---------------------------
     ---------BOX HELPERS----------

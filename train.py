@@ -3,7 +3,6 @@ from components.data_loader.data_load import solar_panel_data, DisplayBoundingBo
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
-import components.torchvision_utilities.utils as utils
 import argparse as ap
 import torchvision
 import pandas as pd
@@ -14,6 +13,8 @@ import copy
 import time
 import cv2
 import os
+import math
+import sys
 
 
 results_folder = "Results-folder"
@@ -53,6 +54,49 @@ def create_results_folder(configuration):
     if not os.path.exists(results_folder):
         os.mkdir(results_folder)
 
+def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epoch):
+    model.train()
+
+    lr_scheduler = None
+    if epoch == 0:
+        warmup_factor = 1. / 1000
+        warmup_iters = min(1000, len(data_loader) - 1)
+
+        lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
+    
+    i = 0
+    for images, targets in data_loader:
+        images = list(image.to(device) for image in images)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        loss_dict = model(images, targets)
+
+        losses = sum(loss for loss in loss_dict.values())
+
+        # reduce losses over all GPUs for logging purposes
+        loss_dict_reduced = utils.reduce_dict(loss_dict)
+        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+
+        loss_value = losses_reduced.item()
+
+        if not math.isfinite(loss_value):
+            print("Loss is {}, stopping training".format(loss_value))
+            print(loss_dict_reduced)
+            sys.exit(1)
+
+        optimizer.zero_grad()
+        losses.backward()
+        optimizer.step()
+
+        if lr_scheduler is not None:
+            lr_scheduler.step()
+        
+        # if i % 60 == 0 and i != 0:
+        #     success_percentage = evaluate(model, data_loader_test, device)
+        #     print(f"Epoch: {epoch}, itr.: {i}: loss {losses} Accuracy: {success_percentage*100}")
+        # i=i+1
+
+    return losses
 
 @torch.no_grad()
 def evaluate(model, data_loader_test, device):
@@ -84,9 +128,9 @@ def evaluate(model, data_loader_test, device):
         for i, image in enumerate(outputs):
             pics = pics + 1
             logger.__load__(image, targets[i])
-            label, score = logger.get_highest_predictions()
+            label, score = logger.get_highest_predictions(score_limit=0.4)
             success, targets_success, overlaps = logger.get_success_w_box_overlap(
-                label, score
+                label, score, overlap_limit=0.3
             )
 
             if success:
@@ -99,10 +143,10 @@ def evaluate(model, data_loader_test, device):
 
     success_percent = success_array.count(1) / len(success_array)
 
-    # Put back in train mode
-    model.train()
-
     torch.set_num_threads(n_threads)
+
+    # Set back in training mode
+    model.train()
 
     return success_percent
 
@@ -150,8 +194,8 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+    img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
@@ -195,7 +239,7 @@ def train():
             
     
     # Predefined values
-    epochs = 15
+    epochs = 150
     i = 0
 
     # Optimizer
@@ -212,7 +256,6 @@ def train():
         optimizer, step_size=configuration["StepSize"], gamma=configuration["Gamma"]
     )
 
-    model.train()
     start = time.time()
     losses_data = []
     num_images = []
@@ -222,48 +265,24 @@ def train():
     start_time = time.time()
     for epoch in range(epochs):
         data_iter_train = iter(data_loader_train)
-        for images, targets in data_iter_train:
-            # Move images and targets to GPU
-            images = list(image.to(device) for image in images)
-            
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-            optimizer.zero_grad()
-            loss_dict = model(images, targets)
-            losses = sum(loss for loss in loss_dict.values())
-
-            # Check how bad
-            losses.backward()
-            # Be better
-            optimizer.step()
-
-            # print statistics
-            if i % 60 == 0:
-                print(
-                    f"Epoch: {epoch}: loss {losses} Accuracy: {success_percentage*100}"
-                )
-
-            if i % 30 == 0 and i != 0:
-                success_percentage = evaluate(model, data_loader_test, device)
-
-            success_percentage_data.append(success_percentage)
-
-            # Save data
-            if torch.cuda.is_available():
-                losses_data.append(losses.cpu().detach().numpy())
-            else:
-                losses_data.append(losses.detach().numpy())
-
-            if len(num_images) > 1:
-                num_images.append(num_images[-1] + len(images))
-            else:
-                num_images.append(len(images))
-            time_data.append(time.time() - start_time)
-
-            i += 1
-
+        losses = train_one_epoch(model, optimizer, data_iter_train, data_loader_test, device, epoch)
+    
         # Optimize learning rate
         lr_scheduler.step()
+
+        success_percentage = evaluate(model, data_loader_test, device)
+        print(f"Epoch: {epoch}: loss {losses} Accuracy: {success_percentage*100}")
+
+        success_percentage_data.append(success_percentage)
+
+        # Save data
+        if torch.cuda.is_available():
+            losses_data.append(losses.cpu().detach().numpy())
+        else:
+            losses_data.append(losses.detach().numpy())
+        
+        time_data.append(time.time() - start_time)
 
     filename = create_filename(
         "solar_model",
@@ -275,7 +294,7 @@ def train():
 
     data = {
         "Time": time_data,
-        "Num images": num_images,
+        # "Num images": num_images,
         "Loss": losses_data,
         "Succes Percentage": success_percentage_data,
     }
