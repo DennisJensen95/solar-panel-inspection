@@ -146,7 +146,7 @@ def train():
     # Locate cpu or GPU
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    model = ChooseModel(configuration["Model"], configuration["Labels"], freeze=True)
+    model = ChooseModel(configuration["Model"], configuration["Labels"], freeze=False)
     model.to(device)
 
     # Initialize data loader
@@ -170,7 +170,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=2,
+        batch_size=5,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
