@@ -2,70 +2,66 @@ import scipy.io as sci
 import cv2
 import glob
 import numpy as np
+import components.neural_nets.NNClassifier
+from helpers import evaluate, load_configuration, get_transform
+from components.neural_nets.NNClassifier import ChooseModel
+import torch
+import components.torchvision_utilities.utils as utils
+import components.torchvision_utilities.transforms as T
+from components.data_loader.data_load import solar_panel_data
+import copy
 
 
 def main():
-    # Generate paths to all viable images
-    files, masks = GeneratePath()
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    # Print example
-    imgNum = 352
-    print(files[imgNum])
-    print(masks[imgNum])
+    folder_name = "solar_model_faster_fault-classification_20210111-224932"
 
-    # Load .mat file
-    GT = sci.loadmat(masks[imgNum])
-    Labelstemp = GT['GTLabel']  # fault labels
-    Labels = np.transpose(Labelstemp)
-    Classification = GT['GTMask']  # fault mask
+    model_path = "/home/theis/solar-inspect/solar-panel-inspection/Results-folder/" + folder_name
 
-    # Load example image
-    Image = cv2.imread(files[imgNum], cv2.IMREAD_GRAYSCALE)
+    conf = load_configuration(model_path + "/model_conf.json")
 
-    # Show image
-    cv2.imshow('Image', Image)
-    cv2.waitKey()
+    model = ChooseModel(conf["Model"], conf["Labels"], freeze=False)
+    model.load_state_dict(torch.load(model_path + "/" + folder_name))
+    model.to(device)
 
+    # ------ LOAD DATA ------------
 
-def GeneratePath():
-    """Generates path to images and removes 
-    any that does not have a corresponding mask 
+    # Initialize data loader
+    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+    dataset_train = solar_panel_data(
+        img_dir,
+        mask_dir,
+        filter=True
+    )
+    dataset_test = copy.deepcopy(dataset_train)
+    dataset_test.transforms = get_transform(train=False)
 
-    Returns:
-        [list]: [path to images]
-        [list]: [path to masks/labels]
-    """
+    num_classes = dataset_train.get_number_of_classes()
+    indices = torch.randperm(len(dataset_train)).tolist()
+    dataset_train = torch.utils.data.Subset(dataset_train, indices[:-50])
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
 
-    # Path to directories
-    ImageDir = "data/Serie1_CellsAndGT/CellsCorr/*.png"
-    GTDir = "data/Serie1_CellsAndGT/MaskGT/*"
+    data_loader_train = torch.utils.data.DataLoader(
+        dataset_train,
+        batch_size=2,
+        shuffle=True,
+        num_workers=4,
+        collate_fn=utils.collate_fn,
+    )
 
-    # Load paths using glob
-    files = sorted(glob.glob(ImageDir))
-    masks = sorted(glob.glob(GTDir))
+    data_loader_test = torch.utils.data.DataLoader(
+        dataset_test,
+        batch_size=2,
+        shuffle=True,
+        num_workers=4,
+        collate_fn=utils.collate_fn,
+    )
 
-    files = RemoveNoMatches(files, masks)
+    success_percentage = evaluate(model, data_loader_test, device, show_plot=True)
+    print(f"Accuracy: {success_percentage*100}")
+    
 
-    return files, masks
-
-
-def RemoveNoMatches(a, b):
-    """Returns any path that does not have a corresponding mask 
-
-    Returns:
-        [list]: [image paths with corresponding mask]
-    """
-
-    # Beware of the index!!
-    names = [w[52:-4] for w in a]  # 33 + 19 = 52
-    names_m = [w[48:-4] for w in b]  # 30 + 18 = 48
-
-    # Only keep strings that occur in each list
-    names = [x for x in names if x in names_m]
-
-    # Add the path back and return
-    return [a[0][:52] + w + a[0][-4:] for w in names]
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
