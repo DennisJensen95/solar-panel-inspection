@@ -35,7 +35,8 @@ def main():
         mask_dir,
         filter=True,
         mask="mask",
-        train=False
+        train=True,
+        normalize=True
     )
     dataset_test = copy.deepcopy(dataset_train)
     dataset_test.transforms = get_transform(train=False)

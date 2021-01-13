@@ -1,5 +1,5 @@
 # from components.torchvision_utilities.engine import train_one_epoch, evaluate
-from components.data_loader.data_load import solar_panel_data, transform_torch_to_cv2
+from components.data_loader.data_load import solar_panel_data, transform_torch_to_cv2, inv_normalize
 import components.torchvision_utilities.transforms as T
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
@@ -24,13 +24,16 @@ def get_transform(train):
     return T.Compose(transforms)
 
 
-def plot_w_bb(im, target, target_pred, targets_success, predict_success):
+def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_norm=False):
 
     # print(target)
     # print(target_pred)
 
     # im = np.reshape(im, (224, 224, 3))
 
+    if inv_norm:
+        im = inv_normalize(im)
+        
     im = transform_torch_to_cv2(im)
 
 
@@ -159,7 +162,6 @@ def evaluate(model, data_loader_test, device, show_plot=True):
             pics = pics + 1
             logger.__load__(targets[i], prediction)
             label, score = logger.get_highest_predictions(score_limit=0.5)
-            print(score)
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
             Tpos, Fpos, Fneg, Tneg = data
             
