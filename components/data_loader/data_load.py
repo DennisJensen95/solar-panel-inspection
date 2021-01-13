@@ -35,7 +35,8 @@ class solar_panel_data:
 
         self.files, self.masks = self.Load()
 
-        self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
+        self.label_dic = LabelEncoder()
+        #self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
         
         self.csv_filepath = "./data/available_files.csv"
         
@@ -436,12 +437,15 @@ class solar_panel_data:
 
         lab = []
         for i in range(len(labels)):
-            lab.append(self.label_dic[labels[i]])
+            #lab.append(self.label_dic[labels[i]])
+            lab.append(self.label_dic.encode(labels[i]))
+            #print(lab)
 
         return lab
 
     def get_number_of_classes(self):
-        return len(self.label_dic)
+        #print(f"length is: {len(self.label_dics.fault_key_to_value)}")
+        return len(self.label_dic.fault_key_to_value)
 
     def print_csv(self):
         with open("./data/available_files.csv", "w+", newline="") as f:
@@ -455,7 +459,36 @@ class solar_panel_data:
         dataframe = pd.read_csv("./data/available_files.csv")
         self.files = dataframe["CellsCorr"]
         self.masks = dataframe["MaskGT"]
+
+class LabelEncoder:
+
+    def __init__(self, binary=False):
+
+        if binary:
+            self.fault_value_to_key = {'Crack A': 1,
+                                       'Crack B': 1,
+                                       'Crack C': 1,
+                                       'Finger Failure' : 1,
+                                       'No failure' : 2}
         
+        else:
+            self.fault_value_to_key = {'Crack A': 1,
+                                       'Crack B': 2,
+                                       'Crack C': 3,
+                                       'Finger Failure' : 4}
+                                       # 'No failure' : 2}
+
+    
+
+        self.fault_key_to_value = {v: k for k, v in self.fault_value_to_key.items()}
+
+
+    def encode(self,input):
+        return self.fault_value_to_key[input]
+
+    def decode(self,input):
+        return self.fault_key_to_value[input]
+
 
 def DisplayTargetMask(mask, idx):
     mask = transform_torch_to_cv2(mask[idx], 1)
@@ -530,12 +563,12 @@ def main():
     GTDir = "data/combined_data/MaskGT/"
 
     data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True, mask="mask", train=False)
-
-    # num = 8499#8500#8512#8511#8697 #4494
+    
+    # num = 8499#8500#8512#8511#8697 #4494  
     num = 11
     im, target = data_serie1.__getitem__(num)
     im = transform_torch_to_cv2(im)
-    
+    #data_serie1.get_number_of_classes()
     print(f'Fault label: {target["labels"].numpy()}')
     boxes = target["boxes"].numpy().astype(np.uint32)
     print(f"Boxes: {boxes}")
