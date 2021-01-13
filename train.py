@@ -294,7 +294,9 @@ def train():
         lr_scheduler.step()
 
         accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
-    
+        
+        print(f'Epoch: {epoch}, Loss: {losses}')
+        
         print(f'Targets found: {success_percent} percent')
         print(f'Mean accuracy: {accuracy}')
         print(f'Confusion matrix:')
@@ -302,7 +304,7 @@ def train():
         print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
         print(f'Actual No   |        {Fpos}          |       {Tneg}')
 
-        print(f'Epoch: {epoch}, Loss: {losses}')
+        
         
         accuracy_vec.append(accuracy)
         success_percent_vec.append(success_percent)
