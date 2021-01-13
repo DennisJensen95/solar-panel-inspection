@@ -47,8 +47,8 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+    img_dir = "./data/combined_data/CellsCorr/"
+    mask_dir = "./data/combined_data/MaskGT/"
     dataset_train = DataLoaderImageClassification(
         img_dir,
         mask_dir,
@@ -65,7 +65,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=5,
+        batch_size=50,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -80,7 +80,7 @@ def train():
     )
 
     # Predefined values
-    epochs = 15
+    epochs = 30
     i = 0
 
     # Optimizer
