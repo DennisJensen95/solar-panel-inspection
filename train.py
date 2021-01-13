@@ -111,12 +111,20 @@ def evaluate(model, data_loader_test, device):
     # Put in evaluation mode
     model.eval()
 
-    success_array = []
+    Tpos_vec = 0
+    Fpos_vec = 0
+    Fneg_vec = 0
+    Tneg_vec = 0
+    accuracy_vec = []
+
+    success_vec = []
+
     pics = 0
 
     data_iter_test = iter(data_loader_test)
     # iterate over test subjects
     for images, targets in data_iter_test:
+        billeder = images
         images = list(img.to(device) for img in images)
 
         # torch.cuda.synchronize()  # what is this??
@@ -125,30 +133,38 @@ def evaluate(model, data_loader_test, device):
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time
 
-        for i, image in enumerate(outputs):
+        for i, prediction in enumerate(outputs):
             pics = pics + 1
-            logger.__load__(image, targets[i])
-            label, score = logger.get_highest_predictions(score_limit=0.4)
-            success, targets_success, overlaps = logger.get_success_w_box_overlap(
-                label, score, overlap_limit=0.3
-            )
+            logger.__load__(targets[i], prediction)
+            label, score = logger.get_highest_predictions(score_limit=0.5)
+            data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
+            Tpos, Fpos, Fneg, Tneg = data
+            
+            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            
+            accuracy_vec.append(accuracy)
+            Tpos_vec+=Tpos
+            Fpos_vec+=Fpos
+            Fneg_vec+=Fneg
+            Tneg_vec+=Tneg
 
-            if success:
+            if targets_success is not None:
                 for val in targets_success:
-                    success_array.append(val)
-            else:
-                n_targ = len(targets[i]["labels"])
-                for k in range(n_targ):
-                    success_array.append(0)
+                    if val != 0:
+                        success_vec.append(1)
+                    else:
+                        success_vec.append(0)
 
-    success_percent = success_array.count(1) / len(success_array)
+    success_percent = success_vec.count(1) / len(success_vec)
+    
+    # data = sum(accuracy_vec) / len(accuracy_vec)
 
     torch.set_num_threads(n_threads)
 
     # Set back in training mode
     model.train()
 
-    return success_percent
+    return sum(accuracy_vec)/len(accuracy_vec), success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
 
 
 def load_configuration(filename=None):
@@ -239,7 +255,7 @@ def train():
             
     
     # Predefined values
-    epochs = 150
+    epochs = 1
     i = 0
 
     # Optimizer
@@ -260,8 +276,13 @@ def train():
     losses_data = []
     num_images = []
     time_data = []
-    success_percentage_data = []
-    success_percentage = 0
+    accuracy_vec = []
+    success_percent_vec = []
+    Tpos_vec = []
+    Fpos_vec = []
+    Fneg_vec = []
+    Tneg_vec = []
+
     start_time = time.time()
     for epoch in range(epochs):
         data_iter_train = iter(data_loader_train)
@@ -271,10 +292,21 @@ def train():
         # Optimize learning rate
         lr_scheduler.step()
 
-        success_percentage = evaluate(model, data_loader_test, device)
-        print(f"Epoch: {epoch}: loss {losses} Accuracy: {success_percentage*100}")
+        accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
+    
+        print(f'Targets found: {success_percent} percent')
+        print(f'Mean accuracy: {accuracy}')
+        print(f'Confusion matrix:')
+        print(f'n={len(dataset_test)}        |    Predicted Yes   |   Predicted No')
+        print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
+        print(f'Actual No   |        {Fpos}          |       {Tneg}')
 
-        success_percentage_data.append(success_percentage)
+        accuracy_vec.append(accuracy)
+        success_percent_vec.append(success_percent)
+        Tpos_vec.append(Tpos)
+        Fpos_vec.append(Fpos)
+        Fneg_vec.append(Fneg)
+        Tneg_vec.append(Tneg)
 
         # Save data
         if torch.cuda.is_available():
@@ -296,7 +328,12 @@ def train():
         "Time": time_data,
         # "Num images": num_images,
         "Loss": losses_data,
-        "Succes Percentage": success_percentage_data,
+        "Accuracy": accuracy_vec,
+        "Succes Percentage": success_percent_vec,
+        "True positives": Tpos_vec,
+        "False positives": Fpos_vec,
+        "False negatives": Fneg_vec,
+        "True negatives": Tneg_vec,
     }
     write_data_csv(configuration, data, root_dir, timestamp=time_stamp)
 
