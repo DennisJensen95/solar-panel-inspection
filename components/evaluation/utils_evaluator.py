@@ -1,10 +1,10 @@
 import numpy as np
 import torchvision
 import torch
-import sys
-
+import sys      
 
 class LogHelpers:
+
     def __init__(self):
         self.img = []
         self.tar = []
@@ -14,13 +14,16 @@ class LogHelpers:
         self.tar = target
 
     def _get_existing_labels(self):
-        return {1: "Crack A", 2: "Crack B", 3: "Crack C", 4: "Finger Failure"}
+        fault = LabelEncoder()
+        return fault.fault_key_to_value
+        
 
     def _get_highest_prediction(self):
         # labels = get_existing_labels()
         # _, index = torch.max(network_predictions, 1)
 
         labels = self._get_existing_labels()
+       
 
         if len(self.img["scores"] > 0):
             percentage_certainty = self.img["scores"][0].numpy()
@@ -51,6 +54,7 @@ class LogHelpers:
                     break
 
             # return what we obtained
+            
             return label, percentage_certainty
 
         # if no score is above the threshold, we return the highest score
@@ -151,3 +155,33 @@ class LogHelpers:
     """---------------------------
     ---------SECTION END----------
     ------------------------------"""
+
+class LabelEncoder:
+
+    def __init__(self, binary=False):
+
+        if binary:
+            self.fault_value_to_key = {'Crack A': 1,
+                                       'Crack B': 1,
+                                       'Crack C': 1,
+                                       'Finger Failure' : 1,
+                                       'No failure' : 2}
+        
+        else:
+            self.fault_value_to_key = {'Crack A': 1,
+                                       'Crack B': 2,
+                                       'Crack C': 3,
+                                       'Finger Failure' : 4}
+                                       # 'No failure' : 2}
+
+    
+
+        self.fault_key_to_value = {v: k for k, v in self.fault_value_to_key.items()}
+
+
+    def encode(self,input):
+        return self.fault_value_to_key[input]
+
+    def decode(self,input):
+        return self.fault_key_to_value[input]
+
