@@ -1,6 +1,5 @@
 # from components.torchvision_utilities.engine import train_one_epoch, evaluate
 from components.data_loader.data_load import solar_panel_data, DisplayBoundingBoxes, DisplayMasks
-import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
 import components.torchvision_utilities.utils as utils
@@ -78,7 +77,8 @@ def evaluate(model, data_loader_test, device):
         # torch.cuda.synchronize()  # what is this??
         model_time = time.time()
         outputs = model(images)
-        outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+        outputs = [{k: v.to(cpu_device) for k, v in t.items()}
+                   for t in outputs]
         model_time = time.time() - model_time
 
         for i, image in enumerate(outputs):
@@ -131,12 +131,14 @@ def write_data_csv(configuration, data, root_dir, timestamp=False):
     data_frame = pd.DataFrame(data)
     data_frame.to_csv(root_dir + "/" + filename)
 
+
 def setup_arg_parsing():
     parser = ap.ArgumentParser()
     parser.add_argument('--debug', help='debug flag help')
     args = parser.parse_args()
-    
+
     return args
+
 
 def train():
     args = setup_arg_parsing()
@@ -144,9 +146,11 @@ def train():
     configuration = load_configuration()
     root_dir, time_stamp = create_folder("solar_model", configuration)
     # Locate cpu or GPU
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device(
+        "cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    model = ChooseModel(configuration["Model"], configuration["Labels"], freeze=True)
+    model = ChooseModel(configuration["Model"],
+                        configuration["Labels"], freeze=True)
     model.to(device)
 
     # Initialize data loader
@@ -183,7 +187,7 @@ def train():
         num_workers=4,
         collate_fn=utils.collate_fn,
     )
-    
+
     if debug and configuration["Model"] == "Faster":
         for images, targets in iter(data_loader_train):
             DisplayBoundingBoxes(images[0], targets[0]["boxes"], 5)
@@ -192,15 +196,14 @@ def train():
             DisplayBoundingBoxes(images[0], targets[0]["boxes"], 5)
             # print(len(targets))
             DisplayMasks(images[0], targets[0])
-            
-    
+
     # Predefined values
     epochs = 15
     i = 0
 
     # Optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    
+
     optimizer = torch.optim.Adam(
         params,
         lr=configuration["LearningRate"],
@@ -225,8 +228,9 @@ def train():
         for images, targets in data_iter_train:
             # Move images and targets to GPU
             images = list(image.to(device) for image in images)
-            
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+            targets = [{k: v.to(device) for k, v in t.items()}
+                       for t in targets]
 
             optimizer.zero_grad()
             loss_dict = model(images, targets)

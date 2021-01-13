@@ -35,16 +35,17 @@ class solar_panel_data:
 
         self.files, self.masks = self.Load()
 
-        self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
-        
+        self.label_dic = {"Crack A": 1, "Crack B": 2,
+                          "Crack C": 3, "Finger Failure": 4}
+
         self.csv_filepath = "./data/available_files.csv"
-        
+
         self.train = train
-        
+
         if os.path.exists(self.csv_filepath):
             print("Load csv")
             self.load_csv()
-        
+
         elif filter:
             print("Removing files without labels from path...")
             print(f"Avaliable files: {len(self.files)}")
@@ -55,8 +56,7 @@ class solar_panel_data:
             )
             self.RemoveErrors(area_limit)
             print(f"Avaliable files: {len(self.files)}")
-            self.print_csv()    
-        
+            self.print_csv()
 
     def Load(self):
         """Load path to png images and labels/masks"""
@@ -106,8 +106,8 @@ class solar_panel_data:
             [list]: [image paths with corresponding mask]
         """
         # Beware of the index!!
-        names = [w[(n_f + 19) : -4] for w in a]
-        names_m = [w[(n_m + 18) : -4] for w in b]
+        names = [w[(n_f + 19): -4] for w in a]
+        names_m = [w[(n_m + 18): -4] for w in b]
 
         # Only keep strings that occur in each list
         names = [x for x in names if x in names_m]
@@ -172,7 +172,8 @@ class solar_panel_data:
             print("------------------------")
 
     def ResizeMasks(self, masks, resized_size):
-        resized_mask = np.resize(masks, (len(masks), resized_size[0], resized_size[1]))
+        resized_mask = np.resize(
+            masks, (len(masks), resized_size[0], resized_size[1]))
         return resized_mask
 
     def ResizeBoundingBox(self, boxes, orig_shape, resized_size):
@@ -191,7 +192,6 @@ class solar_panel_data:
             resized_boxes.append([xmin, ymin, xmax, ymax])
 
         return resized_boxes
-    
 
     def transform_mask(self, image, masks, train):
         # Resize
@@ -201,12 +201,11 @@ class solar_panel_data:
 
         resize = transforms.Resize(size=(224, 224))
         image = resize(image)
-        
+
         new_masks = []
         for i, mask in enumerate(masks):
             new_masks.append(resize(mask))
         masks = new_masks
-
 
         # # Random horizontal flipping
         # if random.random() > 0.5 and train:
@@ -224,26 +223,25 @@ class solar_panel_data:
         #         new_masks.append(TF.vflip(mask))
         #     masks = new_masks
 
-
         # Transform to tensor
         image = TF.to_tensor(image)
         new_masks = []
         for i, mask in enumerate(masks):
             # new_masks.append(TF.to_tensor(mask))
             new_masks.append(np.asarray(mask))
-        
+
         # masks = TF.to_tensor(np.array(new_masks))
 
         masks = torch.as_tensor(np.asarray(new_masks), dtype=torch.uint8)
         # masks = new_masks
-        
+
         return image, masks
-    
+
     def transform_image(self, image, train):
         # Resize
         resize = transforms.Resize(size=(224, 224))
         image = resize(image)
-        
+
         # Random horizontal flipping
         if random.random() > 0.5 and train:
             image = TF.hflip(image)
@@ -251,10 +249,10 @@ class solar_panel_data:
         # Random vertical flipping
         if random.random() > 0.5 and train:
             image = TF.vflip(image)
-            
+
         # Transform to tensor
         image = TF.to_tensor(image)
-        
+
         return image
 
     def __getitem__(self, idx, find_error=False, area_limit=100):
@@ -321,7 +319,6 @@ class solar_panel_data:
             # of binary masks
             masks = mask == obj_ids[:, None, None]
             masks = masks.astype(np.uint8)
-            
 
             # Checks for disparity between number of unique numbers in the mask and amount of labels
             if find_error and (len(new_labels) is not len(obj_ids)):
@@ -382,7 +379,8 @@ class solar_panel_data:
 
         # convert everything into a torch.Tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        labels = torch.as_tensor(self.__getlabel__(new_labels), dtype=torch.int64)
+        labels = torch.as_tensor(
+            self.__getlabel__(new_labels), dtype=torch.int64)
         image_id = torch.tensor([idx])
 
         # Calculate new area matrix
@@ -390,7 +388,8 @@ class solar_panel_data:
             if len(new_labels) > 0:
                 if find_error:
                     return False
-                area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+                area = (boxes[:, 3] - boxes[:, 1]) * \
+                    (boxes[:, 2] - boxes[:, 0])
 
             else:  # If no more areas are left that can be used, we must let the program know to completely remove the file
                 boxes = torch.as_tensor([[]], dtype=torch.float32)
@@ -402,14 +401,14 @@ class solar_panel_data:
         new_masks = []
         for i, mask in enumerate(masks):
             new_masks.append(Image.fromarray(mask))
-        
+
         masks = new_masks
-        
+
         if self.mask:
             img, masks = self.transform_mask(img, masks, self.train)
         else:
             img = self.transform_image(img, self.train)
-            
+
         # Construct target dictionary
         target = {}
         target["boxes"] = boxes
@@ -417,7 +416,7 @@ class solar_panel_data:
         if self.mask:
             target["masks"] = masks
         target["image_id"] = image_id
-        target["area"] = area  
+        target["area"] = area
 
         return img, target
 
@@ -443,19 +442,6 @@ class solar_panel_data:
     def get_number_of_classes(self):
         return len(self.label_dic)
 
-    def print_csv(self):
-        with open("./data/available_files.csv", "w+", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["CellsCorr", "MaskGT"])
-
-            for i in range(len(self.files)):
-                writer.writerow([self.files[i], self.masks[i]])
-    
-    def load_csv(self):
-        dataframe = pd.read_csv("./data/available_files.csv")
-        self.files = dataframe["CellsCorr"]
-        self.masks = dataframe["MaskGT"]
-        
 
 def DisplayTargetMask(mask, idx):
     mask = transform_torch_to_cv2(mask[idx], 1)
@@ -485,6 +471,7 @@ def DisplayAllFaults(masks):
             print(Labelstemp)
             print(i)
 
+
 def DisplayBoundingBoxes(im, boxes, time):
     boxes = boxes.numpy().astype(np.uint32)
     im = transform_torch_to_cv2(im)
@@ -505,37 +492,41 @@ def DisplayBoundingBoxes(im, boxes, time):
                 xc = (xc + 15).astype(np.uint64)
             yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
             # print(f"(xc,yc) = ({xc},{yc})")
-    
+
     cv2.imshow("Image boxes", im)
     cv2.waitKey(500)
+
 
 def DisplayMasks(im, target):
     masks = target["masks"]
     for i in range(len(masks)):
         DisplayTargetMask(masks, i)
 
+
 def transform_torch_to_cv2(image, channels=3):
     transform = transforms.ToPILImage()
-        
+
     image = np.array(transform(image))
     # print(np.shape(image))
     image = np.reshape(image, (224, 224, channels))
-    
+
     return image
-    
+
+
 def main():
     # os.chdir('components')
     # Path to directories
     ImageDir = "data/combined_data/CellsCorr/"
     GTDir = "data/combined_data/MaskGT/"
 
-    data_serie1 = solar_panel_data(ImageDir, GTDir, filter=True, mask="mask", train=False)
+    data_serie1 = solar_panel_data(
+        ImageDir, GTDir, filter=True, mask="mask", train=False)
 
     # num = 8499#8500#8512#8511#8697 #4494
     num = 11
     im, target = data_serie1.__getitem__(num)
     im = transform_torch_to_cv2(im)
-    
+
     print(f'Fault label: {target["labels"].numpy()}')
     boxes = target["boxes"].numpy().astype(np.uint32)
     print(f"Boxes: {boxes}")

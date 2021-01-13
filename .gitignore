@@ -20,6 +20,7 @@ Results-folder
 
 # model configuration
 model_conf.json
+simple_model_conf.json
 
 # Ignore data folder
 data
