@@ -23,7 +23,8 @@ class solar_panel_data:
         train,
         filter=True,
         area_limit=100,
-        mask="faster"
+        mask="faster",
+        normalize=False
     ):
         if mask == "mask":
             self.mask = True
@@ -36,11 +37,14 @@ class solar_panel_data:
         self.files, self.masks = self.Load()
 
         self.label_dic = LabelEncoder()
-        #self.label_dic = {"Crack A": 1, "Crack B": 2, "Crack C": 3, "Finger Failure": 4}
+        self.normalize = normalize
         
         self.csv_filepath = "./data/available_files.csv"
         
         self.train = train
+        
+        self.norm_mean = (0.485, 0.456, 0.406) 
+        self.norm_std = (0.229, 0.224, 0.225)
         
         if os.path.exists(self.csv_filepath):
             print("Load csv")
@@ -198,36 +202,19 @@ class solar_panel_data:
         # Resize
         # print(f'Before resize: {np.shape(np.array(masks))}')
 
-        trans1 = transforms.ToTensor()
-
         resize = transforms.Resize(size=(224, 224))
+        norm = transforms.Normalize(self.norm_mean, self.norm_std)
+        image = TF.to_tensor(image)
         image = resize(image)
+        if self.normalize:
+            image = norm(image)
         
         new_masks = []
         for i, mask in enumerate(masks):
             new_masks.append(resize(mask))
         masks = new_masks
 
-
-        # # Random horizontal flipping
-        # if random.random() > 0.5 and train:
-        #     image = TF.hflip(image)
-        #     new_masks = []
-        #     for i, mask in enumerate(masks):
-        #         new_masks.append(TF.hflip(mask))
-        #     masks = new_masks
-
-        # # Random vertical flipping
-        # if random.random() > 0.5 and train:
-        #     image = TF.vflip(image)
-        #     new_masks = []
-        #     for i, mask in enumerate(masks):
-        #         new_masks.append(TF.vflip(mask))
-        #     masks = new_masks
-
-
         # Transform to tensor
-        image = TF.to_tensor(image)
         new_masks = []
         for i, mask in enumerate(masks):
             # new_masks.append(TF.to_tensor(mask))
@@ -460,10 +447,21 @@ class solar_panel_data:
         self.files = dataframe["CellsCorr"]
         self.masks = dataframe["MaskGT"]
 
+def inv_normalize(img):
+    norm_mean = (0.485, 0.456, 0.406)
+    norm_std = (0.229, 0.224, 0.225)
+    invTrans = transforms.Compose([ transforms.Normalize(mean = [ 0., 0., 0. ], 
+                                                         std = [ 1/norm_std[0], 1/norm_std[1], 1/norm_std[2] ]),
+                                    transforms.Normalize(mean = [ -norm_mean[0], -norm_mean[1], -norm_mean[2] ], 
+                                                         std = [ 1., 1., 1. ]),
+                                    ])
+    img = invTrans(img)
+    
+    return img
+
 class LabelEncoder:
 
     def __init__(self, binary=False):
-
         if binary:
             self.fault_value_to_key = {'Crack A': 1,
                                        'Crack B': 1,

@@ -65,6 +65,7 @@ def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epo
         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
     
     i = 0
+    losses_val = 0
     for images, targets in data_loader:
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -73,11 +74,13 @@ def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epo
 
         losses = sum(loss for loss in loss_dict.values())
 
+        losses_val += losses
+        
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = utils.reduce_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-
         loss_value = losses_reduced.item()
+        
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -91,12 +94,9 @@ def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epo
         if lr_scheduler is not None:
             lr_scheduler.step()
         
-        # if i % 60 == 0 and i != 0:
-        #     success_percentage = evaluate(model, data_loader_test, device)
-        #     print(f"Epoch: {epoch}, itr.: {i}: loss {losses} Accuracy: {success_percentage*100}")
-        # i=i+1
+        i += 1
 
-    return losses
+    return losses_val/i
 
 @torch.no_grad()
 def evaluate(model, data_loader_test, device):
@@ -217,7 +217,8 @@ def train():
         mask_dir,
         filter=True,
         mask=configuration["Model"],
-        train=True
+        train=True,
+        normalize=True
     )
 
     dataset_test = copy.deepcopy(dataset_train)
@@ -230,7 +231,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=5,
+        batch_size=configuration["BatchSize"],
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -255,7 +256,7 @@ def train():
             
     
     # Predefined values
-    epochs = 1
+    epochs = 150
     i = 0
 
     # Optimizer
@@ -301,6 +302,8 @@ def train():
         print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
         print(f'Actual No   |        {Fpos}          |       {Tneg}')
 
+        print(f'Epoch: {epoch}, Loss: {losses}')
+        
         accuracy_vec.append(accuracy)
         success_percent_vec.append(success_percent)
         Tpos_vec.append(Tpos)
