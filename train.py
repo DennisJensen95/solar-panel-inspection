@@ -90,11 +90,6 @@ def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epo
 
         if lr_scheduler is not None:
             lr_scheduler.step()
-        
-        # if i % 60 == 0 and i != 0:
-        #     success_percentage = evaluate(model, data_loader_test, device)
-        #     print(f"Epoch: {epoch}, itr.: {i}: loss {losses} Accuracy: {success_percentage*100}")
-        # i=i+1
 
     return losses
 
@@ -140,7 +135,12 @@ def evaluate(model, data_loader_test, device):
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
             Tpos, Fpos, Fneg, Tneg = data
             
-            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            try:
+                accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            except RuntimeWarning:
+                print('Cannot compute accuracy')
+                print(data)
+                accuracy = 0.0
             
             accuracy_vec.append(accuracy)
             Tpos_vec+=Tpos
@@ -230,7 +230,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=5,
+        batch_size=10,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -255,7 +255,7 @@ def train():
             
     
     # Predefined values
-    epochs = 1
+    epochs = 5
     i = 0
 
     # Optimizer
@@ -294,6 +294,8 @@ def train():
 
         accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
     
+        print(f"Epoch: {epoch}: loss {losses}")
+
         print(f'Targets found: {success_percent} percent')
         print(f'Mean accuracy: {accuracy}')
         print(f'Confusion matrix:')
