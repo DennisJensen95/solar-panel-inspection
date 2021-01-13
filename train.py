@@ -140,7 +140,12 @@ def evaluate(model, data_loader_test, device):
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
             Tpos, Fpos, Fneg, Tneg = data
             
-            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            try:
+                accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            except RuntimeWarning:
+                print('Cannot compute accuracy')
+                print(data)
+                accuracy = 0.0
             
             accuracy_vec.append(accuracy)
             Tpos_vec+=Tpos
@@ -218,7 +223,7 @@ def train():
         filter=True,
         mask=configuration["Model"],
         train=True,
-        normalize=True
+        normalize=False
     )
 
     dataset_test = copy.deepcopy(dataset_train)
@@ -256,7 +261,7 @@ def train():
             
     
     # Predefined values
-    epochs = 150
+    epochs = 5
     i = 0
 
     # Optimizer
@@ -295,15 +300,15 @@ def train():
 
         accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
     
-        print(f'Targets found: {success_percent} percent')
-        print(f'Mean accuracy: {accuracy}')
+        print(f"Epoch: {epoch}: loss {losses}")
+
+        print(f'Targets found: {success_percent*100} percent')
+        print(f'Mean accuracy: {accuracy*100} percent')
         print(f'Confusion matrix:')
         print(f'n={len(dataset_test)}        |    Predicted Yes   |   Predicted No')
         print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
         print(f'Actual No   |        {Fpos}          |       {Tneg}')
 
-        print(f'Epoch: {epoch}, Loss: {losses}')
-        
         accuracy_vec.append(accuracy)
         success_percent_vec.append(success_percent)
         Tpos_vec.append(Tpos)
