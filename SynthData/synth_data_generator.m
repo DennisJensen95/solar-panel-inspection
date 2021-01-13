@@ -6,19 +6,15 @@ clear
 %% Synth data filter
 % Select which kind of failure you want to upload
 finger_fail_gen = false;
-crack_A_gen = false;
-crack_B_gen = false;
+crack_A_gen = true;
+crack_B_gen = true;
 crack_C_gen = true;
-all_failures = false;
 
-% How many times to repeat data generation
-repeats = 5;
+% Show images
+debug = false;
 
 % Select pin cushion
-pin_cushion = false; % Uses pin cushion transformation 
-
-% Make a directory with synth data
-make_dir = false;
+pin_cushion = true; % Uses pin cushion transformation
 
 failures = {'Finger Failure', 'Crack A', 'Crack B', 'Crack C'};
 
@@ -27,8 +23,8 @@ outDirCells = fullfile('../data/synth_data/CellsCorr');
 outDirMask = fullfile('../data/synth_data/MaskGT');
 saving_directories = {outDirCells, outDirMask};
 
-% Amount of data generated
-data_des = 300;
+% Amount of data desired total (with existing data)
+data_des = 400;
 %% Load available data
 
 addpath("../data/Serie1_cellsAndGT/CellsCorr");
@@ -66,20 +62,21 @@ for i = 1:length(available_im)
     Masks(i) = dir(fullfile(available_mask{i}));
 end
 
-%% Creating new data
-
 for k = 1:length(Images)
-        % Masks
-        Mask_filename = Masks(k).name;
-        info = load(Mask_filename);
-        mask = info.GTMask;
-        
-        % Storing all labels
-        label = info.GTLabel;
-        label_memory_check{k} = label;
+    % Masks
+    Mask_filename = Masks(k).name;
+    info = load(Mask_filename);
+    mask = info.GTMask;
+    
+    % Storing all labels
+    label = info.GTLabel;
+    label_memory_check{k} = label;
 end
 
 failuresN = synth.count_failures(label_memory_check);
+
+%% Creating new data
+
 pin_name = '';
 
 
@@ -94,23 +91,31 @@ for k = 1:length(Images)
     label = info.GTLabel;
     label_memory{k} = label;
     
-    % For pin cushion image transformation
+    % Loading images
     Im_filename = Images(k).name;
-    image = imread(Im_filename);
+    image = imread(available_im{k});
+    
     
     if finger_fail_gen && any(strcmp(label_memory{k},failures{1}))
-        [mask, label] = synth.edit_GTMask(mask, label, failures{1});
+        
+        [mask_cp, label_rdy] = synth.edit_GTMask(mask, label, failures{1});
         dataN = data_des - failuresN(1);
-        if ~dataN < 0 
+        
+        if ~dataN < 0
             for i = 1:(round(dataN/failuresN(1)))
                 if pin_cushion
-                    [mask, image] = synth.pin_cushion_transform(image, mask);
+                    [mask_cp, image_cp] = synth.pin_cushion_transform(image, mask_cp);
                     pin_name = '_pin';
                 end
-                [mask, image] = synth.rotation_transform(image, mask);
+                [mask_rdy, image_rdy] = synth.rotation_transform(image_cp, mask_cp);
                 rot_name = '_rot';
-                synth.store_synth_data(image, mask, label, Mask_filename,...
+                synth.store_synth_data(image_rdy, mask_rdy, label_rdy, Mask_filename,...
                     Im_filename, saving_directories, strcat('_iter_',num2str(i),'_','finger',pin_name,rot_name))
+                if debug
+                    synth.showImage(mask_rdy, image_rdy)
+                    pause;
+                    disp('skipped');
+                end
             end
         else
             continue
@@ -118,55 +123,88 @@ for k = 1:length(Images)
     end
     
     if crack_A_gen && any(strcmp(label_memory{k},failures{2}))
-        [mask, label] = synth.edit_GTMask(mask, label, failures{2});
+        
+        [mask_cp, label_rdy] = synth.edit_GTMask(mask, label, failures{2});
         dataN = data_des - failuresN(2);
+        
         for i = 1:(round(dataN/failuresN(2)))
             if pin_cushion
-                [mask, image] = synth.pin_cushion_transform(image, mask);
+                [mask_cp, image_cp] = synth.pin_cushion_transform(image, mask_cp);
                 pin_name = '_pin';
             end
-            [mask, image] = synth.rotation_transform(image, mask);
+            [mask_rdy, image_rdy] = synth.rotation_transform(image_cp, mask_cp);
             rot_name = '_rot';
-            synth.store_synth_data(image, mask, label, Mask_filename,...
+            synth.store_synth_data(image_rdy, mask_rdy, label_rdy, Mask_filename,...
                 Im_filename, saving_directories, strcat('_iter_',num2str(i),'_','cA',pin_name,rot_name))
+            if debug
+                synth.showImage(mask_rdy, image_rdy)
+                pause;
+                disp('skipped');
+            end
         end
     end
     
     if crack_B_gen && any(strcmp(label_memory{k},failures{3}))
-        [mask, label] = synth.edit_GTMask(mask, label, failures{3});
+        
+        [mask_cp, label_rdy] = synth.edit_GTMask(mask, label, failures{3});
         dataN = data_des - failuresN(3);
+        
         for i = 1:(round(dataN/failuresN(3)))
             if pin_cushion
-                [mask, image] = synth.pin_cushion_transform(image, mask);
+                [mask_cp, image_cp] = synth.pin_cushion_transform(image, mask_cp);
                 pin_name = '_pin';
             end
-            [mask, image] = synth.rotation_transform(image, mask);
+            [mask_rdy, image_rdy] = synth.rotation_transform(image_cp, mask_cp);
             rot_name = '_rot';
-            synth.store_synth_data(image, mask, label, Mask_filename,...
+            synth.store_synth_data(image_rdy, mask_rdy, label_rdy, Mask_filename,...
                 Im_filename, saving_directories, strcat('_iter_',num2str(i),'_','cB',pin_name,rot_name))
+            if debug
+                synth.showImage(mask_rdy, image_rdy)
+                disp(Im_filename)
+                pause;
+                disp('skipped');
+            end
         end
     end
     
     if crack_C_gen && any(strcmp(label_memory{k},failures{4}))
-        [mask, label] = synth.edit_GTMask(mask, label, failures{4});
+        
+        % Editing the mask to contain only 1 label, this case, Crack C
+        [mask_cp, label_rdy] = synth.edit_GTMask(mask, label, failures{4});
         dataN = data_des - failuresN(4);
+        
         for i = 1:(round(dataN/failuresN(4)))
+            
             if pin_cushion
-                [mask, image] = synth.pin_cushion_transform(image, mask);
+                % Pin cushion transformation
+                [mask_cp, image_cp] = synth.pin_cushion_transform(image, mask_cp);
+                
+                % For naming the output file
                 pin_name = '_pin';
             end
-            [mask, image] = synth.rotation_transform(image, mask);
+            % Rotating the image
+            [mask_rdy, image_rdy] = synth.rotation_transform(image_cp, mask_cp);
+            
+            % For naming the output file
             rot_name = '_rot';
-            synth.store_synth_data(image, mask, label, Mask_filename,...
+            
+            % Storing image and (mask,label)
+            synth.store_synth_data(image_rdy, mask_rdy, label_rdy, Mask_filename,...
                 Im_filename, saving_directories, strcat('_iter_',num2str(i),'_','cC',pin_name,rot_name))
+            
+            if debug
+                synth.showImage(mask_rdy, image_rdy)
+                pause;
+                disp('skipped');
+            end
         end
     end
     
-
+    
 end
 %% Counting the failures
 
-synth.count_failures(label_memory)
+% synth.count_failures(label_memory)
 
   
             

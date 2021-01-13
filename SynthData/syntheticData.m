@@ -5,6 +5,11 @@ classdef syntheticData
     
     methods (Static)
         
+        function showImage(mask, image)
+            subplot(1,2,1), imshow(image)
+            subplot(1,2,2), imshow(mask)
+        end
+        
         function failures = count_failures(label_mem)
             %%%%%%%%%%%%%%%%%%%%
             %
@@ -78,10 +83,13 @@ classdef syntheticData
             %
             %%%%%%%%%%%%%%%%%%%%%%
             
+            % Image dim
+            dim = size(mask);
+            
             % Pin cushion computation
             xmin = 0.01;
             xmax = 0.1;
-            fill = 0.3;
+            fill = 1;
             
             nrows = size(image, 1);
             ncols = size(image, 2);
@@ -103,8 +111,9 @@ classdef syntheticData
             tform = geometricTransform2d(ifcn);
             
             % Doing image transformation and saving
-            mask_pin = imwarp(mask,tform,'FillValues',fill);
+            mask_pin = mask;
             image_pin = imwarp(image,tform,'FillValues',fill);
+            image_pin = imresize(image_pin, dim);
         end
         
         function [mask_rot, image_rot] = rotation_transform(image, mask)
