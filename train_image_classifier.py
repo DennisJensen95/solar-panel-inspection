@@ -2,16 +2,44 @@ from components.data_loader.image_classification_data_loader import DataLoaderIm
 from components.neural_nets.ImageClassifier import ChooseModel
 import components.torchvision_utilities.utils as utils
 from train import setup_arg_parsing, create_folder, create_filename, load_configuration, write_data_csv
+import numpy as np
 import torch
 import time
 import copy
 
+@torch.no_grad()
+def evaluate(model, data_loader_test, device):
+    success_array = []
+    pics = 0
+
+    data_iter_test = iter(data_loader_test)
+    # iterate over test subjects
+    total_success = 0
+    total_evaluated = 0
+    for images, labels in data_iter_test:
+        predictions = []
+        for j, image in enumerate(images):
+            image = image.unsqueeze(0).to(device)
+            label = labels[j].to(device)
+            output = model(image)
+            prediction = output.to("cpu").max(1)[1]
+            predictions.append(prediction.numpy()[0])
+        
+        success = np.array(labels) == np.array(predictions[0])
+        success_count = np.sum(success)
+        
+        total_success += success_count
+        total_evaluated += len(labels)
+        
+    success_percent = total_success / total_evaluated
+
+    return success_percent
 
 def train():
     args = setup_arg_parsing()
     debug = True if args.debug != None else False
     configuration = load_configuration("simple_model_conf.json")
-    root_dir, time_stamp = create_folder("solar_model", configuration)
+    root_dir, time_stamp = create_folder("solar_model", configuration, conf_name="simple_model_conf.json")
     # Locate cpu or GPU
     device = torch.device(
         "cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -37,7 +65,7 @@ def train():
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        batch_size=1,
+        batch_size=5,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -45,7 +73,7 @@ def train():
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
-        batch_size=1,
+        batch_size=3,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -64,10 +92,9 @@ def train():
         weight_decay=configuration["WeightDecay"],
     )
 
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(reduction='mean')
 
     model.train()
-    start = time.time()
     losses_data = []
     num_images = []
     time_data = []
@@ -81,42 +108,32 @@ def train():
         for images, labels in data_iter_train:
             # Move images and targets to GPU
             optimizer.zero_grad()
-            for i, image in enumerate(images):
+            for j, image in enumerate(images):
                 image = image.unsqueeze(0).to(device)
-                label = labels[i].to(device)
+                label = labels[j].to(device)
                 output = model(image)
                 loss = criterion(output, label)
                 loss.backward()
 
             optimizer.step()
-
-            if i % 60 == 0:
-                print(
-                    f"Epoch: {epoch}: loss {loss/i} Accuracy: eval"
-                )
-
-            if i % 30 == 0 and i != 0:
-                # success_percentage = evaluate(model, data_loader_test, device)
-                print("Evaluate")
-
-            # success_percentage_data.append(success_percentage)
-
-            # Save data
+            running_loss += loss.item()
+            
             if torch.cuda.is_available():
-                losses_data.append(loss.cpu().detach().numpy())
+                losses_data.append(running_loss)
             else:
-                losses_data.append(loss.detach().numpy())
+                losses_data.append(running_loss)
 
             if len(num_images) > 1:
                 num_images.append(num_images[-1] + len(images))
             else:
                 num_images.append(len(images))
             time_data.append(time.time() - start_time)
-
             i += 1
-
-        # Optimize learning rate
-        lr_scheduler.step()
+            
+        success_percentage = evaluate(model, data_loader_test, device)
+        print(
+            f"Epoch: {epoch}: loss {running_loss/i} Accuracy: {success_percentage*100}"
+        )
 
     filename = create_filename(
         "solar_model",

@@ -198,6 +198,8 @@ class SSH_Util:
         )
         self.scp_client.put(
             "train.py", remote_path=self.get_environment_path())
+        self.scp_client.put(
+            "train_image_classifier.py", remote_path=self.get_environment_path())
         self.scp_client.put("requirements-cuda-10.1.txt",
                             remote_path=self.get_environment_path())
         self.scp_client.put(

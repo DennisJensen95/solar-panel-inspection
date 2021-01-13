@@ -26,7 +26,7 @@ def create_filename(name, model, classification, timestamp=False):
     return name + "_" + model + "_" + classification + "_" + timestr
 
 
-def create_folder(name, configuration):
+def create_folder(name, configuration, conf_name="model_conf.json"):
     create_results_folder(configuration)
     timestr = time.strftime("%Y%m%d-%H%M%S")
     folder_name = (
@@ -42,7 +42,7 @@ def create_folder(name, configuration):
     if not os.path.exists(path):
         os.makedirs(path)
 
-    with open(path + "/model_conf.json", "w+") as file:
+    with open(path + "/" + conf_name, "w+") as file:
         json.dump(configuration, file)
 
     return path, timestr
