@@ -47,8 +47,8 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/combined_data/CellsCorr/"
-    mask_dir = "./data/combined_data/MaskGT/"
+    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
     dataset_train = DataLoaderImageClassification(
         img_dir,
         mask_dir,
@@ -93,7 +93,10 @@ def train():
     )
 
     criterion = torch.nn.CrossEntropyLoss(reduction='mean')
-
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer, step_size=configuration["StepSize"], gamma=configuration["Gamma"]
+    )
+    
     model.train()
     losses_data = []
     num_images = []
@@ -117,7 +120,7 @@ def train():
 
             optimizer.step()
             running_loss += loss.item()
-            
+                
             if torch.cuda.is_available():
                 losses_data.append(running_loss)
             else:
@@ -129,6 +132,9 @@ def train():
                 num_images.append(len(images))
             time_data.append(time.time() - start_time)
             i += 1
+        
+        lr_scheduler.step()
+        
             
         success_percentage = evaluate(model, data_loader_test, device)
         print(

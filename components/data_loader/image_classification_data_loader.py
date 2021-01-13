@@ -83,6 +83,7 @@ class DataLoaderImageClassification:
 
     def label_and_sort_images(self, files, masks):
         mask_with_fault = []
+        mask_without_fault = []
         no_fault_images = files
         for i, mask in enumerate(masks):
             GT = sci.loadmat(mask)
@@ -91,27 +92,28 @@ class DataLoaderImageClassification:
             # Make a list of all files that has a label and those without
             if Labelstemp.size > 0:
                 mask_with_fault.append(mask)
+            else:
+                mask_without_fault.append(mask)
+                
 
         n_f = len(self.ImageDir) - 1
         n_m = len(self.GTDir) - 1
         fault_images = self.remove_no_matches(files, mask_with_fault, n_f, n_m)
+        no_fault_images = self.remove_no_matches(files, mask_without_fault, n_f, n_m)
 
         number_faults = len(fault_images)
+        number_no_faults = len(no_fault_images)
         print(f'Number of images with faults: {number_faults}')
-        print(f'Images with no fault {len(files) - number_faults}')
+        print(f'Images with no fault {number_no_faults}')
         print(f'Reducing images with no fault size to equivalent of faults')
 
-        data = self.make_data_structure(fault_images, files, number_faults)
+        data = self.make_data_structure(fault_images, files, number_faults, number_no_faults)
 
         return data
 
-    def make_data_structure(self, images_with_error, all_images, number_faults):
-
-        images_without_an_error = [
-            x for x in all_images if x not in images_with_error]
-
-        shuffle(images_without_an_error)
-        no_fault_images = images_without_an_error[:number_faults +
+    def make_data_structure(self, images_with_error, no_fault_images, number_faults, number_no_faults):
+        shuffle(no_fault_images)
+        no_fault_images = no_fault_images[:number_faults +
                                                   int(0.3*number_faults)]
 
         label_error = list(np.ones((len(images_with_error))))
