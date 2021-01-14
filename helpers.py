@@ -124,14 +124,14 @@ def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_nor
 
 
 @torch.no_grad()
-def evaluate(model, data_loader_test, device, show_plot=True):
+def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
 
     # Metric logger class
-    logger = LogHelpers()
+    logger = LogHelpers(binary=False)
 
     # Put in evaluation mode
     model.eval()
@@ -185,7 +185,7 @@ def evaluate(model, data_loader_test, device, show_plot=True):
                 # print(f'Labels success: {label}')
                 # print(f'Targets success: {targets_success}')
                 if targets_success is not None:
-                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success )
+                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success,inv_norm)
                     # show_plot = True
 
     success_percent = success_vec.count(1) / len(success_vec)

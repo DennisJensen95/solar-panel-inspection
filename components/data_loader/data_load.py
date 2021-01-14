@@ -24,7 +24,8 @@ class solar_panel_data:
         filter=True,
         area_limit=100,
         mask="faster",
-        normalize=False
+        normalize=False,
+        binary=False
     ):
         if mask == "mask":
             self.mask = True
@@ -36,7 +37,7 @@ class solar_panel_data:
 
         self.files, self.masks = self.Load()
 
-        self.label_dic = LabelEncoder()
+        self.label_dic = LabelEncoder(binary=binary)
         self.normalize = normalize
         
         self.csv_filepath = "./data/available_files.csv"
@@ -466,8 +467,7 @@ class LabelEncoder:
             self.fault_value_to_key = {'Crack A': 1,
                                        'Crack B': 1,
                                        'Crack C': 1,
-                                       'Finger Failure' : 1,
-                                       'No failure' : 2}
+                                       'Finger Failure' : 1}
         
         else:
             self.fault_value_to_key = {'Crack A': 1,

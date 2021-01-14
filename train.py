@@ -106,7 +106,7 @@ def evaluate(model, data_loader_test, device):
     cpu_device = torch.device("cpu")
 
     # Metric logger class
-    logger = LogHelpers()
+    logger = LogHelpers(binary=False)
 
     # Put in evaluation mode
     model.eval()
@@ -206,15 +206,16 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
+    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
         filter=True,
         mask=configuration["Model"],
         train=True,
-        normalize=True
+        normalize=True,
+        binary=False
     )
 
     dataset_test = copy.deepcopy(dataset_train)

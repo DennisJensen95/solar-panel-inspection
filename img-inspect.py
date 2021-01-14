@@ -15,28 +15,29 @@ import copy
 def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    folder_name = "solar_model_mask_fault-classification_20210112-222104"
+    folder_name = "solar_model_mask_binary_20210114-165706"
 
     model_path = "./Results-folder/" + folder_name
 
     conf = load_configuration(model_path + "/model_conf.json")
 
     model = ChooseModel(conf["Model"], conf["Labels"], freeze=False)
-    model.load_state_dict(torch.load(model_path + "/" + folder_name))
+    model.load_state_dict(torch.load(model_path + "/" + folder_name, map_location=torch.device('cpu')))
     model.to(device)
 
     # ------ LOAD DATA ------------
 
     # Initialize data loader
-    img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
+    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
         filter=True,
         mask="mask",
         train=True,
-        normalize=True
+        normalize=True,
+        binary=False
     )
     dataset_test = copy.deepcopy(dataset_train)
     dataset_test.transforms = get_transform(train=False)
@@ -62,7 +63,7 @@ def main():
         collate_fn=utils.collate_fn,
     )
 
-    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device, show_plot=True)
+    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device, show_plot=True, inv_norm=True)
     
     print(f'Targets found: {success_percent} percent')
     print(f'Mean accuracy: {accuracy}')
