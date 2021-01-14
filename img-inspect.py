@@ -15,7 +15,7 @@ import copy
 def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    folder_name = "solar_model_mask_fault-classification_20210112-222104"
+    folder_name = "solar_model_mask_fault-classification_20210114-093235"
 
     model_path = "./Results-folder/" + folder_name
 
@@ -28,8 +28,8 @@ def main():
     # ------ LOAD DATA ------------
 
     # Initialize data loader
-    img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
+    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
@@ -43,26 +43,18 @@ def main():
 
     num_classes = dataset_train.get_number_of_classes()
     indices = torch.randperm(len(dataset_train)).tolist()
-    dataset_train = torch.utils.data.Subset(dataset_train, indices[:-50])
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
+    dataset_test = torch.utils.data.Subset(dataset_train, indices[:])
 
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train,
-        batch_size=2,
-        shuffle=True,
-        num_workers=4,
-        collate_fn=utils.collate_fn,
-    )
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
-        batch_size=2,
+        batch_size=1,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
     )
 
-    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device, show_plot=True)
+    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device, show_plot=True, inv_norm=True)
     
     print(f'Targets found: {success_percent} percent')
     print(f'Mean accuracy: {accuracy}')

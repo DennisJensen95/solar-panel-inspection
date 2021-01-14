@@ -271,7 +271,7 @@ class solar_panel_data:
         # load images and masks
         img_path = self.files[idx]
         mask_path = self.masks[idx]
-
+        print(img_path)
         # Load .mat file
         GT = sci.loadmat(mask_path)
         Labelstemp = GT["GTLabel"]  # fault labels
@@ -407,7 +407,7 @@ class solar_panel_data:
         target["image_id"] = image_id
         target["area"] = area  
 
-        return img, target
+        return img, target, img_path
 
     def __len__(self):
         return len(self.files)

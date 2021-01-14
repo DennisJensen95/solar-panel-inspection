@@ -4,16 +4,16 @@ import components.torchvision_utilities.transforms as T
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
-import torchvision
 import pandas as pd
+import torchvision
+import numpy as np
 import torch
 import json
 import copy
 import time
-import os
+import csv   
 import cv2
-import numpy as np
-import copy
+import os
 
 
 def get_transform(train):
@@ -24,12 +24,7 @@ def get_transform(train):
     return T.Compose(transforms)
 
 
-def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_norm=False):
-
-    # print(target)
-    # print(target_pred)
-
-    # im = np.reshape(im, (224, 224, 3))
+def plot_w_bb(im, target, target_pred, targets_success, predict_success, img_path, inv_norm=False):
 
     if inv_norm:
         im = inv_normalize(im)
@@ -121,10 +116,22 @@ def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_nor
         cv2.imshow("Image", im)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+    
+        save_or_not = input("Save (y or n): ")
+        img_path = img_path[0]
+        
+        if save_or_not == "y":
+            file = os.path.basename(os.path.normpath(img_path)) 
+            cv2.imwrite("./to_investigate/image_predictions/" + file.replace(".png", "") + "_pred.png", im)
+            with open('./to_investigate/image_predictions.csv', 'a') as f:
+                writer = csv.writer(f)
+                writer.writerow([file])
+            
+            
 
 
 @torch.no_grad()
-def evaluate(model, data_loader_test, device, show_plot=True):
+def evaluate(model, data_loader_test, device, show_plot=True, inv_norm=False):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
@@ -148,7 +155,7 @@ def evaluate(model, data_loader_test, device, show_plot=True):
 
     data_iter_test = iter(data_loader_test)
     # iterate over test subjects
-    for images, targets in data_iter_test:
+    for images, targets, img_path in data_iter_test:
         billeder = images
         images = list(img.to(device) for img in images)
 
@@ -185,7 +192,7 @@ def evaluate(model, data_loader_test, device, show_plot=True):
                 # print(f'Labels success: {label}')
                 # print(f'Targets success: {targets_success}')
                 if targets_success is not None:
-                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success )
+                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success, img_path, inv_norm)
                     # show_plot = True
 
     success_percent = success_vec.count(1) / len(success_vec)
