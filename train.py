@@ -1,8 +1,9 @@
 # from components.torchvision_utilities.engine import train_one_epoch, evaluate
 from components.data_loader.data_load import solar_panel_data, DisplayBoundingBoxes, DisplayMasks
-import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
+import components.torchvision_utilities.utils as utils
+from components.evaluation.helpers import plot_w_bb
 import argparse as ap
 import torchvision
 import pandas as pd
@@ -99,7 +100,7 @@ def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epo
     return losses_val/i
 
 @torch.no_grad()
-def evaluate(model, data_loader_test, device):
+def evaluate(model, data_loader_test, device, show_plot=False, inv_transform=False):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
@@ -111,22 +112,17 @@ def evaluate(model, data_loader_test, device):
     # Put in evaluation mode
     model.eval()
 
-    Tpos_vec = 0
-    Fpos_vec = 0
-    Fneg_vec = 0
-    Tneg_vec = 0
-
     success_vec = []
 
     pics = 0
 
     data_iter_test = iter(data_loader_test)
     # iterate over test subjects
+    data_log = logger.initialize_data()
     for images, targets in data_iter_test:
         billeder = images
         images = list(img.to(device) for img in images)
 
-        # torch.cuda.synchronize()  # what is this??
         model_time = time.time()
         outputs = model(images)
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
@@ -137,12 +133,8 @@ def evaluate(model, data_loader_test, device):
             logger.__load__(targets[i], prediction)
             label, score = logger.get_highest_predictions(score_limit=0.5)
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
-            Tpos, Fpos, Fneg, Tneg = data
-
-            Tpos_vec+=Tpos
-            Fpos_vec+=Fpos
-            Fneg_vec+=Fneg
-            Tneg_vec+=Tneg
+            
+            data_log = logger.add_data_to_data(data_log, data)
 
             if targets_success is not None:
                 for val in targets_success:
@@ -150,17 +142,23 @@ def evaluate(model, data_loader_test, device):
                         success_vec.append(1)
                     else:
                         success_vec.append(0)
+            
+            if show_plot:
+                if targets_success is not None:
+                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success, inv_transform)
 
     success_percent = success_vec.count(1) / len(success_vec)
     
-    # data = sum(accuracy_vec) / len(accuracy_vec)
-
     torch.set_num_threads(n_threads)
 
     # Set back in training mode
     model.train()
-
-    return success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
+    
+    Tpos, Tneg, Fpos, Fneg, total_faults, correct_faults = logger.get_confusion_matrix_values(data_log)
+    
+    accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+    
+    return accuracy, success_percent, Tpos, Fpos, Fneg, Tneg, data_log
 
 
 def load_configuration(filename=None):
@@ -294,9 +292,7 @@ def train():
         # Optimize learning rate
         lr_scheduler.step()
 
-        success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
-
-        accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+        accuracy, success_percent, Tpos, Fpos, Fneg, Tneg, _ = evaluate(model, data_loader_test, device)
         
         print(f'Epoch: {epoch}, Loss: {losses}, Mean accuracy: {accuracy*100}, Targets found: {success_percent*100}, Learning rate: {lr_scheduler.state_dict()["_last_lr"]}')
         
