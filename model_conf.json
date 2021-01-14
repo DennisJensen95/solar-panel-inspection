@@ -1,1 +1,1 @@
-{"Classification": "fault-classification", "Model": "mask", "Labels": 5, "LearningRate": 5e-05, "Momentum": 0.1, "WeightDecay": 0.0001, "StepSize": [10,25], "Gamma": 0.1, "BatchSize": 8}
+{"Classification": "fault-classification", "Model": "mask", "Labels": 5, "LearningRate": 5e-05, "Momentum": 0.1, "WeightDecay": 0.01, "StepSize": [10,25], "Gamma": 0.1, "BatchSize": 2}
