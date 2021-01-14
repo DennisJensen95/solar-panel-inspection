@@ -222,8 +222,11 @@ def train():
 
     num_classes = dataset_train.get_number_of_classes()
     indices = torch.randperm(len(dataset_train)).tolist()
-    dataset_train = torch.utils.data.Subset(dataset_train, indices[:-50])
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
+    _index = len(dataset_test)-int(len(indices)*0.15)
+    dataset_train = torch.utils.data.Subset(dataset_train, indices[:_index])
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[_index:])
+    print(f"Images for training: {len(dataset_train)}")
+    print(f"Images for testing: {len(dataset_test)}")
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
@@ -235,7 +238,7 @@ def train():
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
-        batch_size=2,
+        batch_size=1,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -247,12 +250,11 @@ def train():
     elif debug and configuration["Model"] == "mask":
         for images, targets in iter(data_loader_train):
             DisplayBoundingBoxes(images[0], targets[0]["boxes"], 5)
-            # print(len(targets))
             DisplayMasks(images[0], targets[0])
             
     
     # Predefined values
-    epochs = 25
+    epochs = 30
     i = 0
 
     # Optimizer
@@ -270,7 +272,7 @@ def train():
         optimizer, milestones=configuration["StepSize"], gamma=configuration["Gamma"]
     )
 
-    start = time.time()
+    # Data variables intialisation
     losses_data = []
     num_images = []
     time_data = []
@@ -282,6 +284,7 @@ def train():
     Tneg_vec = []
 
     start_time = time.time()
+    best_model = -1
     for epoch in range(epochs):
         data_iter_train = iter(data_loader_train)
 
@@ -293,8 +296,8 @@ def train():
         success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
 
         accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
-
-        print(f'Epoch: {epoch}, Loss: {losses}, Mean accuracy: {accuracy*100}, Targets found: {success_percent*100}')
+        
+        print(f'Epoch: {epoch}, Loss: {losses}, Mean accuracy: {accuracy*100}, Targets found: {success_percent*100}, Learning rate: {lr_scheduler.state_dict()["_last_lr"]}')
         
         accuracy_vec.append(accuracy)
         success_percent_vec.append(success_percent)
@@ -311,30 +314,40 @@ def train():
         
         time_data.append(time.time() - start_time)
 
-    print(f'Confusion matrix (final evaluation):')
-    print(f'n={len(dataset_test)}        |    Predicted Yes   |   Predicted No')
-    print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
-    print(f'Actual No   |        {Fpos}          |       {Tneg}')
+        if success_percent > best_model:
+            best_model = success_percent
+            filename = create_filename(
+                "solar_model",
+                configuration["Model"],
+                configuration["Classification"],
+                timestamp=time_stamp,
+            )
+            torch.save(model.state_dict(), root_dir + "/" + filename)
 
-    filename = create_filename(
-        "solar_model",
-        configuration["Model"],
-        configuration["Classification"],
-        timestamp=time_stamp,
-    )
-    torch.save(model.state_dict(), root_dir + "/" + filename)
-
+            data = {
+                "Time": time_data,
+                # "Num images": num_images,
+                "Loss": losses_data,
+                "Accuracy": accuracy_vec,
+                "Succes Percentage": success_percent_vec,
+                "True positives": Tpos_vec,
+                "False positives": Fpos_vec,
+                "False negatives": Fneg_vec,
+                "True negatives": Tneg_vec,
+            }
+            write_data_csv(configuration, data, root_dir, timestamp=time_stamp)
+    
     data = {
-        "Time": time_data,
-        # "Num images": num_images,
-        "Loss": losses_data,
-        "Accuracy": accuracy_vec,
-        "Succes Percentage": success_percent_vec,
-        "True positives": Tpos_vec,
-        "False positives": Fpos_vec,
-        "False negatives": Fneg_vec,
-        "True negatives": Tneg_vec,
-    }
+                "Time": time_data,
+                # "Num images": num_images,
+                "Loss": losses_data,
+                "Accuracy": accuracy_vec,
+                "Succes Percentage": success_percent_vec,
+                "True positives": Tpos_vec,
+                "False positives": Fpos_vec,
+                "False negatives": Fneg_vec,
+                "True negatives": Tneg_vec,
+            }
     write_data_csv(configuration, data, root_dir, timestamp=time_stamp)
 
 
