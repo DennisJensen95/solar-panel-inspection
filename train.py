@@ -115,7 +115,6 @@ def evaluate(model, data_loader_test, device):
     Fpos_vec = 0
     Fneg_vec = 0
     Tneg_vec = 0
-    accuracy_vec = []
 
     success_vec = []
 
@@ -139,10 +138,7 @@ def evaluate(model, data_loader_test, device):
             label, score = logger.get_highest_predictions(score_limit=0.5)
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
             Tpos, Fpos, Fneg, Tneg = data
-            
-            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
-            
-            accuracy_vec.append(accuracy)
+
             Tpos_vec+=Tpos
             Fpos_vec+=Fpos
             Fneg_vec+=Fneg
@@ -164,7 +160,7 @@ def evaluate(model, data_loader_test, device):
     # Set back in training mode
     model.train()
 
-    return sum(accuracy_vec)/len(accuracy_vec), success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
+    return success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
 
 
 def load_configuration(filename=None):
@@ -256,7 +252,7 @@ def train():
             
     
     # Predefined values
-    epochs = 150
+    epochs = 25
     i = 0
 
     # Optimizer
@@ -265,12 +261,13 @@ def train():
     optimizer = torch.optim.Adam(
         params,
         lr=configuration["LearningRate"],
+        # momentum=configuration["Momentum"],
         weight_decay=configuration["WeightDecay"],
     )
 
     # and a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=configuration["StepSize"], gamma=configuration["Gamma"]
+    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=configuration["StepSize"], gamma=configuration["Gamma"]
     )
 
     start = time.time()
@@ -293,16 +290,11 @@ def train():
         # Optimize learning rate
         lr_scheduler.step()
 
-        accuracy, success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
-    
-        print(f'Targets found: {success_percent} percent')
-        print(f'Mean accuracy: {accuracy}')
-        print(f'Confusion matrix:')
-        print(f'n={len(dataset_test)}        |    Predicted Yes   |   Predicted No')
-        print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
-        print(f'Actual No   |        {Fpos}          |       {Tneg}')
+        success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(model, data_loader_test, device)
 
-        print(f'Epoch: {epoch}, Loss: {losses}')
+        accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+
+        print(f'Epoch: {epoch}, Loss: {losses}, Mean accuracy: {accuracy*100}, Targets found: {success_percent*100}')
         
         accuracy_vec.append(accuracy)
         success_percent_vec.append(success_percent)
@@ -318,6 +310,11 @@ def train():
             losses_data.append(losses.detach().numpy())
         
         time_data.append(time.time() - start_time)
+
+    print(f'Confusion matrix (final evaluation):')
+    print(f'n={len(dataset_test)}        |    Predicted Yes   |   Predicted No')
+    print(f'Actual Yes  |        {Tpos}          |       {Fneg}')
+    print(f'Actual No   |        {Fpos}          |       {Tneg}')
 
     filename = create_filename(
         "solar_model",
