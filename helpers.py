@@ -124,7 +124,7 @@ def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_nor
 
 
 @torch.no_grad()
-def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True):
+def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True, score_limit=0.5):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
@@ -140,7 +140,6 @@ def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True):
     Fpos_vec = 0
     Fneg_vec = 0
     Tneg_vec = 0
-    accuracy_vec = []
 
     success_vec = []
 
@@ -161,13 +160,10 @@ def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True):
         for i, prediction in enumerate(outputs):
             pics = pics + 1
             logger.__load__(targets[i], prediction)
-            label, score = logger.get_highest_predictions(score_limit=0.5)
+            label, score = logger.get_highest_predictions(score_limit=score_limit)
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
             Tpos, Fpos, Fneg, Tneg = data
-            
-            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
-            
-            accuracy_vec.append(accuracy)
+
             Tpos_vec+=Tpos
             Fpos_vec+=Fpos
             Fneg_vec+=Fneg
@@ -179,14 +175,6 @@ def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True):
                         success_vec.append(1)
                     else:
                         success_vec.append(0)
-                    
-            
-            if show_plot:
-                # print(f'Labels success: {label}')
-                # print(f'Targets success: {targets_success}')
-                if targets_success is not None:
-                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success,inv_norm)
-                    # show_plot = True
 
     success_percent = success_vec.count(1) / len(success_vec)
     
@@ -197,7 +185,7 @@ def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True):
     # Set back in training mode
     model.train()
 
-    return sum(accuracy_vec)/len(accuracy_vec), success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
+    return success_percent, Tpos_vec, Fpos_vec, Fneg_vec, Tneg_vec
 
 
 def load_configuration(filename):
