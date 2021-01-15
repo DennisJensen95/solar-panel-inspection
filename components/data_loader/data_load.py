@@ -22,6 +22,7 @@ class solar_panel_data:
         gt_dir,
         train,
         filter=True,
+        csv=True,
         area_limit=100,
         mask="faster",
         normalize=False,
@@ -36,6 +37,7 @@ class solar_panel_data:
         self.GTDir = gt_dir + "*"
 
         self.files, self.masks = self.Load()
+        
 
         self.label_dic = LabelEncoder(binary=binary)
         self.normalize = normalize
@@ -47,7 +49,7 @@ class solar_panel_data:
         self.norm_mean = (0.485, 0.456, 0.406) 
         self.norm_std = (0.229, 0.224, 0.225)
         
-        if os.path.exists(self.csv_filepath):
+        if os.path.exists(self.csv_filepath) and csv:
             print("Load csv")
             self.load_csv()
         

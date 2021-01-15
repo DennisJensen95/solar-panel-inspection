@@ -15,15 +15,6 @@ import cv2
 import numpy as np
 import copy
 
-
-def get_transform(train):
-    transforms = []
-    transforms.append(T.ToTensor())
-    if train:
-        transforms.append(T.RandomHorizontalFlip(0.5))
-    return T.Compose(transforms)
-
-
 def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_norm=False):
 
     # print(target)
