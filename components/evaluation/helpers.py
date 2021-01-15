@@ -4,6 +4,7 @@ import components.torchvision_utilities.transforms as T
 import components.torchvision_utilities.utils as utils
 from components.evaluation.utils_evaluator import LogHelpers
 from components.neural_nets.NNClassifier import ChooseModel
+from matplotlib import cm
 import torchvision
 import pandas as pd
 import torch
@@ -15,7 +16,7 @@ import cv2
 import numpy as np
 import copy
 
-def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_norm=False):
+def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_norm=False, plot_boxes=False):
 
     # print(target)
     # print(target_pred)
@@ -35,83 +36,151 @@ def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_nor
     boxes = target["boxes"].numpy().astype(np.uint32)
     boxes_pred = target_pred["boxes"].numpy().astype(np.uint32)
 
-    if len(boxes[0]) > 0:
-        for i in range(len(boxes)):
-            cv2.rectangle(
-                im,
-                (boxes[i][0], boxes[i][1]),
-                (boxes[i][2], boxes[i][3]),
-                (255, 0, 0),
-                2,
-            )
+    masks = target["masks"].numpy()
+    masks_pred = target["masks"].numpy()
 
-            xc = boxes[i][2] / 2 + boxes[i][0] / 2
-            if np.abs(xc) > np.abs(xc - im.shape[0]):
-                xc = (xc - 50).astype(np.uint64)
-            else:
-                xc = (xc + 25).astype(np.uint64)
-            yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
-
-            try:
-                cv2.putText(
-                    im, str(target["labels"][i].numpy()), (xc, yc), 1, 0.8, (255, 0, 0), 1
+    if plot_boxes:
+        if len(boxes[0]) > 0:
+            for i in range(len(boxes)):
+                cv2.rectangle(
+                    im,
+                    (boxes[i][0], boxes[i][1]),
+                    (boxes[i][2], boxes[i][3]),
+                    (255, 0, 0),
+                    2,
                 )
-            except:
-                print("Cannot print labels")
-    
+
+                xc = boxes[i][2] / 2 + boxes[i][0] / 2
+                if np.abs(xc) > np.abs(xc - im.shape[0]):
+                    xc = (xc - 50).astype(np.uint64)
+                else:
+                    xc = (xc + 25).astype(np.uint64)
+                yc = ((boxes[i][3] / 2 + boxes[i][1] / 2)).astype(np.uint64)
+
+                try:
+                    cv2.putText(
+                        im, str(target["labels"][i].numpy()), (xc, yc), 1, 0.8, (255, 0, 0), 1
+                    )
+                except:
+                    print("Cannot print labels")
+    else:
+        if len(masks[0]) > 0:
+            for i, mask in enumerate(masks):
+
+                xc = boxes_pred[i][2] / 2 + boxes_pred[i][0] / 2
+                if np.abs(xc) > np.abs(xc - im.shape[0]):
+                    xc = (xc - 50).astype(np.uint64)
+                else:
+                    xc = (xc + 25).astype(np.uint64)
+                yc = ((boxes_pred[i][3] / 2 + boxes_pred[i][1] / 2)).astype(np.uint64)
+
+                try:
+                    cv2.putText(
+                        im, str(target["labels"][i].numpy()), (xc, yc), 1, 0.8, (255, 0, 0), 1
+                    )
+                except:
+                    print("Cannot print labels")
+
+                cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+                for c in cnts:
+                    cv2.drawContours(im, [c], -1, (255, 0, 0), thickness=2)
+
+
     # Show image
     cv2.imshow("Image", im)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
     image = copy.copy(im)
-
-    if len(boxes_pred) == 0:
-        print("No predictions")
-        return 
+    if plot_boxes:
+        if len(boxes_pred) == 0:
+            print("No predictions")
+            return
+    else:
+        if len(masks_pred) == 0:
+            print("No predictions")
+            return
     
-    if len(boxes_pred[0]) > 0:
-        for i in range(len(predict_success)):
-            if i<len(predict_success):
-                print(predict_success)
-                if predict_success[i]:
-                    color = (0, 255, 0)
+    if plot_boxes:
+        if len(boxes_pred[0]) > 0:
+            for i in range(len(predict_success)):
+                if i<len(predict_success):
+                    print(predict_success)
+                    if predict_success[i]:
+                        color = (0, 255, 0)
+                    else:
+                        color = (0, 0, 255)
                 else:
                     color = (0, 0, 255)
-            else:
-                color = (0, 0, 255)
-            
-            # im = copy.copy(image)
-            cv2.rectangle(
-                im,
-                (boxes_pred[i][0], boxes_pred[i][1]),
-                (boxes_pred[i][2], boxes_pred[i][3]),
-                color,
-                2,
-            )
-
-            xc = boxes_pred[i][2] / 2 + boxes_pred[i][0] / 2
-            if np.abs(xc) > np.abs(xc - im.shape[0]):
-                xc = (xc - 50).astype(np.uint64)
-            else:
-                xc = (xc + 25).astype(np.uint64)
-            yc = ((boxes_pred[i][3] / 2 + boxes_pred[i][1] / 2)).astype(np.uint64)
-
-            try:
-                cv2.putText(
-                    im, str(target_pred["labels"][i].numpy()), (xc, yc), 1, 0.8, color, 1
+                
+                # im = copy.copy(image)
+                cv2.rectangle(
+                    im,
+                    (boxes_pred[i][0], boxes_pred[i][1]),
+                    (boxes_pred[i][2], boxes_pred[i][3]),
+                    color,
+                    2,
                 )
-            except:
-                print("Cannot print labels")
-            
-            if i > 7:
-                break
-            
-            print(f'Score: {target_pred["scores"][i].numpy()}')
-            # Show image
-        cv2.imshow("Image", im)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+
+                xc = boxes_pred[i][2] / 2 + boxes_pred[i][0] / 2
+                if np.abs(xc) > np.abs(xc - im.shape[0]):
+                    xc = (xc - 50).astype(np.uint64)
+                else:
+                    xc = (xc + 25).astype(np.uint64)
+                yc = ((boxes_pred[i][3] / 2 + boxes_pred[i][1] / 2)).astype(np.uint64)
+
+                try:
+                    cv2.putText(
+                        im, str(target_pred["labels"][i].numpy()), (xc, yc), 1, 0.8, color, 1
+                    )
+                except:
+                    print("Cannot print labels")
+                
+                if i > 7:
+                    break
+                
+                print(f'Score: {target_pred["scores"][i].numpy()}')
+                # Show image
+            cv2.imshow("Image", im)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+    else:
+        if len(masks_pred[0]) > 0:
+            for i, mask_pred in enumerate(masks_pred):
+                if i<len(predict_success):
+                    print(predict_success)
+                    if predict_success[i]:
+                        color = (0, 255, 0)
+                    else:
+                        color = (0, 0, 255)
+                else:
+                    color = (0, 0, 255)
+
+                xc = boxes_pred[i][2] / 2 + boxes_pred[i][0] / 2
+                if np.abs(xc) > np.abs(xc - im.shape[0]):
+                    xc = (xc - 50).astype(np.uint64)
+                else:
+                    xc = (xc + 25).astype(np.uint64)
+                yc = ((boxes_pred[i][3] / 2 + boxes_pred[i][1] / 2)).astype(np.uint64)
+
+                try:
+                    cv2.putText(
+                        im, str(target_pred["labels"][i].numpy()), (xc, yc), 1, 0.8, color, 1
+                    )
+                except:
+                    print("Cannot print labels")
+
+                overlay_pred = np.zeros(im.shape, im.dtype)
+                overlay_pred[:,:] = (0, 255, 0)
+                mask_pred_copy = cv2.bitwise_and(overlay_pred, overlay_pred, mask = mask_pred)
+                im = cv2.addWeighted(mask_pred_copy, 0.2, im, 0.8, 0)
+
+
+            cv2.imshow("Image", im)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
 
 
 @torch.no_grad()

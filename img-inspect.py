@@ -77,7 +77,7 @@ def evaluate_labels(img_dir, mask_dir, device, model):
         collate_fn=utils.collate_fn,
     )
 
-    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg, data = evaluate(model, data_loader_test, device, show_plot=False, inv_transform=True)
+    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg, data = evaluate(model, data_loader_test, device, show_plot=True, inv_transform=True)
     
     logger = LogHelpers()
     logger.print_data(data, success_percent, label='all')
