@@ -22,7 +22,7 @@ def main():
     conf = load_configuration(model_path + "/model_conf.json")
 
     model = ChooseModel(conf["Model"], conf["Labels"], freeze=False)
-    model.load_state_dict(torch.load(model_path + "/" + folder_name, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(model_path + "/" + folder_name))
     model.to(device)
 
     # ------ LOAD DATA ------------
