@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse as ap
 import os
+from sklearn.metrics import auc
 
 def setup_arg_parsing():
     parser = ap.ArgumentParser()
@@ -61,6 +62,9 @@ def plotResults():
     sns.lineplot(ax = ax1, data=model_res, x=xcolFPR, y=ycolTPR, marker='o', color='red')
     plt.xticks(np.arange(0.0, 1.2, 0.2))
     ax1.set(ylabel='TP rate', xlabel='FP rate')
+
+    area = auc(model_res["FPR"].to_numpy(), model_res["TPR"].to_numpy())
+    plt.annotate('AUC: {}'.format(area), xy=(0.3,0.5))
     
     fig2, ax2 = plt.subplots() #1,2,figsize=(16,6)
     sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolAcc,marker = 'o')
@@ -68,6 +72,7 @@ def plotResults():
 
     ax2.set(ylabel='Percent', xlabel='Score limit')
     ax2.legend([ycolAcc, 'Success Percentage'])
+
 
 
     print(model_res)
