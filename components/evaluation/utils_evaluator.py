@@ -5,16 +5,17 @@ import sys
 
 class LogHelpers:
 
-    def __init__(self):
+    def __init__(self, binary=False):
         self.img = []
         self.tar = []
+        self.binary = binary
 
     def __load__(self, target, image):
         self.tar = target
         self.img = image
 
     def _get_existing_labels(self):
-        fault = LabelEncoder()
+        fault = LabelEncoder(binary=self.binary)
         return fault.fault_key_to_value
         
 
@@ -238,8 +239,7 @@ class LabelEncoder:
             self.fault_value_to_key = {'Crack A': 1,
                                        'Crack B': 1,
                                        'Crack C': 1,
-                                       'Finger Failure' : 1,
-                                       'No failure' : 2}
+                                       'Finger Failure' : 1}
         
         else:
             self.fault_value_to_key = {'Crack A': 1,
