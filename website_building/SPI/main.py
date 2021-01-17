@@ -1,7 +1,11 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
+<<<<<<< HEAD
 from components.predictions.predict_faults import predict_faults
+=======
+from dog_prediction import predict_dogs
+>>>>>>> 037097c021a5de17c6216d64006c7388e1be5882
 import io
 import numpy as np
 import cv2
@@ -39,8 +43,12 @@ async def image(image: UploadFile = File(...)):
     file_path, extension = name_image_and_save_it(image, img)
 
     img_dimensions = str(img.shape)
+<<<<<<< HEAD
     model_string = "./Results-folder/solar_model_mask_fault-classification_20210114-093235/solar_model_mask_fault-classification_20210114-093235"
     predict_faults(img, model_string)
+=======
+    predict_dogs(file_path)
+>>>>>>> 037097c021a5de17c6216d64006c7388e1be5882
 
     # line that fixed it
     _, encoded_img = cv2.imencode('.PNG', img)
