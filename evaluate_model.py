@@ -1,9 +1,11 @@
+from fileinput import filename
 import scipy.io as sci
 import cv2
 import glob
 import numpy as np
 import components.neural_nets.NNClassifier
 from components.evaluation.helpers import evaluate, load_configuration
+from components.evaluation.utils_binary_evaluation import evaluate_binary_new
 from components.neural_nets.NNClassifier import ChooseModel
 import torch
 import components.torchvision_utilities.utils as utils
@@ -20,20 +22,28 @@ def setup_arg_parsing():
     parser.add_argument('--debug', help='debug flag help')
     parser.add_argument('--folder', help='Model folder path')
     parser.add_argument('--augment', help='Model folder path')
+    parser.add_argument('--binary', help='Flag to use binary evaluation')
     args = parser.parse_args()
     
     return args
 
-def write_data_csv(data, root_dir):
-    filename = create_filename()
+def write_data_csv(args, data, root_dir):
+    filename = create_filename(args)
 
     data_frame = pd.DataFrame(data)
+
+    print(f'Writing csv file at: {root_dir + "/" + filename}')
     data_frame.to_csv(root_dir + "/" + filename)
 
-def create_filename():
-    return "AUC_testdata"
+def create_filename(args):
+    if args.binary is None:
+        filename = "AUC_testdata"
+    else:
+        filename = "AUC_testdata_binary"
+    return filename
 
 def main():
+    print(f'Started script')
     args = setup_arg_parsing()
     # debug = True if args.debug != None else False
 
@@ -83,11 +93,11 @@ def main():
 
     num_classes = dataset_test.get_number_of_classes()
     indices = torch.randperm(len(dataset_train)).tolist()
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[:])
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[:10])
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
-        batch_size=1,
+        batch_size=1, # must be 1
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
@@ -105,26 +115,44 @@ def main():
     lim3 = np.linspace(0.82,1.0,num=10)
     limits=np.concatenate((lim1,lim2,lim3))
 
-    limits = 0.5
+    limits = np.array([0.5, 0.6])
     for limit in limits:
-        print(f'Currently checking score limit: {limit}')
-        success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(
-            model, 
-            data_loader_test, 
-            device, 
-            show_plot=False, 
-            inv_norm=True, 
-            score_limit=limit
-            )
+        if args.binary is None:
+            print(f'Currently checking score limit: {limit}')
+            success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(
+                model, 
+                data_loader_test, 
+                device, 
+                show_plot=False, 
+                inv_norm=True, 
+                score_limit=limit
+                )
 
-        accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
 
-        accuracy_vec.append(accuracy)
-        success_vec.append(success_percent)
-        Tpos_vec.append(Tpos)
-        Fpos_vec.append(Fpos)
-        Fneg_vec.append(Fneg)
-        Tneg_vec.append(Tneg)
+            accuracy_vec.append(accuracy)
+            success_vec.append(success_percent)
+            Tpos_vec.append(Tpos)
+            Fpos_vec.append(Fpos)
+            Fneg_vec.append(Fneg)
+            Tneg_vec.append(Tneg)
+        else:
+            print(f'Currently checking score limit: {limit}')
+            success_percent, Tpos, Fpos, Fneg, Tneg = evaluate_binary_new(
+                model, 
+                data_loader_test, 
+                device,
+                score_limit=limit
+                )
+
+            accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
+
+            accuracy_vec.append(accuracy)
+            success_vec.append(success_percent)
+            Tpos_vec.append(Tpos)
+            Fpos_vec.append(Fpos)
+            Fneg_vec.append(Fneg)
+            Tneg_vec.append(Tneg)
     
     data = {
                 # "Num images": num_images,
@@ -136,7 +164,8 @@ def main():
                 "True negatives": Tneg_vec,
                 "Limits": limits,
             }
-    write_data_csv(data, model_path)
+
+    write_data_csv(args, data, model_path)
     
 
 if __name__ == "__main__":
