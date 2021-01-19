@@ -10,7 +10,8 @@ from components.neural_nets.NNClassifier import ChooseModel
 import torch
 import components.torchvision_utilities.utils as utils
 import components.torchvision_utilities.transforms as T
-from components.data_loader.data_load import solar_panel_data
+from components.data_loader.data_load import solar_panel_data # load multi label
+from components.data_loader.data_load_binary_eval import LoadImages # load binary
 import copy
 import argparse as ap
 import os
@@ -79,32 +80,20 @@ def main():
         mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
 
     if args.binary is None:
-        dataset_train = solar_panel_data(
+        dataset_test = solar_panel_data(
         img_dir,
         mask_dir,
         filter=True,
         mask="mask",
-        train=True,
+        train=False,
         normalize=True,
         binary=False
         )
     else:
-        dataset_train = solar_panel_data(
-        img_dir,
-        mask_dir,
-        filter=True,
-        mask="mask",
-        train=True,
-        normalize=True,
-        binary=True
-        )
-    
-    dataset_test = copy.deepcopy(dataset_train)
-    dataset_test.train = False
-
-    num_classes = dataset_test.get_number_of_classes()
-    indices = torch.randperm(len(dataset_train)).tolist()
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[:37])
+        dataset_test = LoadImages(img_dir, mask_dir, normalize=True)
+        
+    indices = torch.randperm(len(dataset_test)).tolist()
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[:])
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
@@ -126,10 +115,11 @@ def main():
     lim3 = np.linspace(0.82,1.0,num=10)
     limits=np.concatenate((lim1,lim2,lim3))
 
-    limits = np.array([0.5, 0.7, 0.9])
+    limits = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    # limits = np.array([0.5])
     for limit in limits:
         if args.binary is None:
-            print(f'Currently checking score limit: {limit}')
+            print(f'Currently checking score limit (multi-label): {limit}')
             success_percent, Tpos, Fpos, Fneg, Tneg = evaluate(
                 model, 
                 data_loader_test, 
@@ -148,7 +138,7 @@ def main():
             Fneg_vec.append(Fneg)
             Tneg_vec.append(Tneg)
         else:
-            print(f'Currently checking score limit: {limit}')
+            print(f'Currently checking score limit (binary): {limit}')
             success_percent, Tpos, Fpos, Fneg, Tneg = evaluate_binary_new(
                 model, 
                 data_loader_test, 

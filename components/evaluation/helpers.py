@@ -173,7 +173,8 @@ def evaluate(model, data_loader_test, device, show_plot=True, inv_norm = True, s
             logger.__load__(targets[i], prediction)
             label, score = logger.get_highest_predictions(score_limit=score_limit)
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
-            Tpos, Fpos, Fneg, Tneg = data
+
+            Tpos, Fpos, Fneg, Tneg, total_faults, correct_faults = logger.get_confusion_matrix_values(data)
             
 
             Tpos_vec+=Tpos

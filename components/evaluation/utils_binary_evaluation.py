@@ -143,7 +143,7 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
         if label == label_pred:
             success += 1
             
-        
+        print(f'Prediction: {label_pred}, target: {label}')
         # Check which correct labelling if correct
         if label == 0 and label == label_pred:
             no_fault_correct += 1
