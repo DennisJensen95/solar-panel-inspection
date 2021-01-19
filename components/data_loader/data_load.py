@@ -279,7 +279,7 @@ class solar_panel_data:
         GT = sci.loadmat(mask_path)
         Labelstemp = GT["GTLabel"]  # fault labels
         Labels = np.transpose(Labelstemp)
-        mask = GT["GTMask"]  # fault mask
+        mask = GT["GTMaskOld"]  # fault mask
         # Load example image
 
         img = Image.open(img_path)

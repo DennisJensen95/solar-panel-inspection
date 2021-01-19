@@ -76,9 +76,12 @@ def main():
         img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
         mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
     else:
-        img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-        mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+        img_dir = "./data/Seriex_CellsAndGT/CellsCorr/"
+        mask_dir = "./data/Seriex_CellsAndGT/MaskGT/"
 
+    print(f'Image dir: {img_dir}')
+    print(f'Mask dir: {mask_dir}')
+    
     if args.binary is None:
         dataset_test = solar_panel_data(
         img_dir,
@@ -89,8 +92,14 @@ def main():
         normalize=True,
         binary=False
         )
+        print("Label evaluation")
+        print(f"Image files: {len(dataset_test.files)}")
+        print(f"Error files: {len(dataset_test.masks)}")
     else:
         dataset_test = LoadImages(img_dir, mask_dir, normalize=True)
+        print("Binary evaluation")
+        print(f"Image files: {len(dataset_test.files)}")
+        print(f"Error files: {len(dataset_test.files_fault)}")
         
     indices = torch.randperm(len(dataset_test)).tolist()
     dataset_test = torch.utils.data.Subset(dataset_test, indices[:])
@@ -115,10 +124,6 @@ def main():
     lim2 = np.linspace(0.25,0.8,num=12)
     lim3 = np.linspace(0.82,1.0,num=10)
     limits=np.concatenate((lim1,lim2,lim3))
-
-    # limits = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    # limits = np.linspace(0.0,1.0,num=21)
-    # limits = np.array([0.0, 0.5, 1.0])
 
     for limit in limits:
         if args.binary is None:
@@ -149,7 +154,7 @@ def main():
                 device,
                 score_limit=limit
                 )
-
+        
             accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
 
             accuracy_vec.append(accuracy)

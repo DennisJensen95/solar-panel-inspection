@@ -5,7 +5,6 @@ import numpy as np
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-
 def getFastRCNNResnet50Fpn(pretrained):
     return torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=pretrained)
 
@@ -47,10 +46,9 @@ def ChooseModel(input, n_classes, freeze=False):
 
 
 def main():
-    model = ChooseModel("faster", 5, True)
+    model = ChooseModel("mask", 5, True)
     print(f"model is: {model}")
     print("Pretrained classifiers")
-
 
 if __name__ == "__main__":
     main()
