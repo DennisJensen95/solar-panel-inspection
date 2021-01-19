@@ -145,7 +145,7 @@ def evaluate(model, data_loader_test, device, show_plot=False, inv_transform=Fal
             
             if show_plot:
                 if targets_success is not None:
-                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success, inv_transform)
+                    plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success, inv_transform, plot_boxes=True)
 
     success_percent = success_vec.count(1) / len(success_vec)
     

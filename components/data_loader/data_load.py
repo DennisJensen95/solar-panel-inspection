@@ -46,7 +46,7 @@ class solar_panel_data:
         
         self.train = train
         
-        self.norm_mean = (0.485, 0.456, 0.406) 
+        self.norm_mean = (0.485, 0.456, 0.406)
         self.norm_std = (0.229, 0.224, 0.225)
         
         if os.path.exists(self.csv_filepath) and csv:

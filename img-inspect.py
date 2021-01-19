@@ -44,7 +44,7 @@ def binary(args, img_dir, mask_dir, device, model):
         
     print(f"Evaluating binary case with cut off percentage: {cutoff_percent}")
     
-    success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, images = evaluate_binary(model, data_loader_test, device, 0.5)
+    success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, images = evaluate_binary(model, data_loader_test, device, cutoff_percent, plot_results=False)
     
     print(f'Succes percentage is: {success_percent}')
     print(f'Faults succesfully found: {fault_correct/fault_images}')

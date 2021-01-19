@@ -1,3 +1,5 @@
+from .helpers import plot_w_bb
+import numpy as np
 import torch
 import time
 
@@ -13,7 +15,7 @@ def print_results(success_percent, fault_correct, no_fault_correct, fault_images
     print("---------------------------------------------")
 
 @torch.no_grad()
-def evaluate_binary(model, data_loader_test, device, prediction_certainty_cutoff):
+def evaluate_binary(model, data_loader_test, device, prediction_certainty_cutoff, plot_results=False):
     n_threads = torch.get_num_threads()
     torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
@@ -30,6 +32,7 @@ def evaluate_binary(model, data_loader_test, device, prediction_certainty_cutoff
     fault_images = 0
     no_fault_images = 0
     for images, label in data_iter_test:
+        billede = images
         images = list(img.to(device) for img in images)
         label = label[0]
 
@@ -73,6 +76,12 @@ def evaluate_binary(model, data_loader_test, device, prediction_certainty_cutoff
         
         if num_images % 100 == 0:    
             print_results(success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, num_images)
+        
+        if plot_results and label == 0 and label_pred == 1:
+            predictions = outputs[0]
+            fault_prediction_wrong_according_to_label = np.zeros(np.count_nonzero(predictions["scores"].numpy() >= prediction_certainty_cutoff))
+            plot_w_bb(images[0].to("cpu"), predictions, predictions, [], fault_prediction_wrong_according_to_label, inv_norm=True, plot_boxes=True)
+        
     
 
     
