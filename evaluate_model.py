@@ -78,7 +78,8 @@ def main():
         img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
         mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
 
-    dataset_train = solar_panel_data(
+    if args.binary is None:
+        dataset_train = solar_panel_data(
         img_dir,
         mask_dir,
         filter=True,
@@ -86,14 +87,24 @@ def main():
         train=True,
         normalize=True,
         binary=False
-    )
+        )
+    else:
+        dataset_train = solar_panel_data(
+        img_dir,
+        mask_dir,
+        filter=True,
+        mask="mask",
+        train=True,
+        normalize=True,
+        binary=True
+        )
     
     dataset_test = copy.deepcopy(dataset_train)
     dataset_test.train = False
 
     num_classes = dataset_test.get_number_of_classes()
     indices = torch.randperm(len(dataset_train)).tolist()
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[:10])
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[:37])
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
@@ -115,7 +126,7 @@ def main():
     lim3 = np.linspace(0.82,1.0,num=10)
     limits=np.concatenate((lim1,lim2,lim3))
 
-    limits = np.array([0.5, 0.6])
+    limits = np.array([0.5, 0.7, 0.9])
     for limit in limits:
         if args.binary is None:
             print(f'Currently checking score limit: {limit}')
