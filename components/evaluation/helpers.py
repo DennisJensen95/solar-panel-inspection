@@ -33,13 +33,13 @@ def plot_w_bb(im, target, target_pred, targets_success, predict_success, inv_nor
     boxes = target["boxes"].numpy().astype(np.uint32)
     masks = target["masks"].numpy()
 
-    # if plot_boxes:
-    #     im = plot_type(boxes, im, target["labels"], targets_success, predictions=target_pred["scores"], method="box", color=(255,0,0))
-    # else:
-    #     im = plot_type(masks, im, target["labels"], targets_success, predictions=target_pred["scores"], method="contours", color=(255,0,0))
+    if plot_boxes:
+        im = plot_type(boxes, im, target["labels"], targets_success, predictions=target_pred["scores"], method="box", color=(255,0,0))
+    else:
+        im = plot_type(masks, im, target["labels"], targets_success, predictions=target_pred["scores"], method="contours", color=(255,0,0))
         
     # Show image
-    # showcase_image(im)
+    showcase_image(im)
 
     image = copy.copy(im)
     if len(boxes_pred) == 0:
@@ -71,6 +71,7 @@ def plot_type(objects, im, labels, succeses, predictions=None, method="box", sho
                 
             if predictions != None and len(predictions) > 0:
                 print(f'Score: {predictions[i].numpy()}')
+            
         if showcase:
             showcase_image(im)
     return im
@@ -98,7 +99,6 @@ def put_text(box, im, color, text):
 
 def get_color(i, predict_success):
     if i<len(predict_success):
-        print(predict_success[i])
         if predict_success[i]:
             color = (0, 255, 0)
         else:

@@ -74,8 +74,8 @@ def evaluate_binary(model, data_loader_test, device, prediction_certainty_cutoff
         num_images += 1
         success_percent = success / num_images
         
-        # if num_images % 100 == 0:    
-        #     print_results(success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, num_images)
+        if num_images % 100 == 0 and no_fault_images != 0 and fault_images != 0:
+            print_results(success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, num_images)
         
         if plot_results and label == 0 and label_pred == 1:
             predictions = outputs[0]
@@ -140,6 +140,7 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
             label_pred = 1
         else:
             label_pred = 0
+        
         
         # Correct label succes
         if label == label_pred:
