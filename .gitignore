@@ -24,6 +24,7 @@ model_conf.json
 # Ignore data folder
 data
 combined_data
+Image_folder
 
 # Data produce 
 *.asv
