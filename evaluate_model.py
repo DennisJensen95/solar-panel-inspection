@@ -93,7 +93,7 @@ def main():
         dataset_test = LoadImages(img_dir, mask_dir, normalize=True)
         
     indices = torch.randperm(len(dataset_test)).tolist()
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[:1000])
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[:])
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
@@ -118,7 +118,7 @@ def main():
 
     # limits = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
     # limits = np.linspace(0.0,1.0,num=21)
-    limits = np.array([0.0, 0.5, 1.0])
+    # limits = np.array([0.0, 0.5, 1.0])
 
     for limit in limits:
         if args.binary is None:
