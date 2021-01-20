@@ -132,10 +132,12 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
         
         # Check if model thinks there is a fault
         if len(score) > 0:
-            if score[0] > score_limit:
+            if score[0] >= score_limit:
                 label_pred = 1
             else:
                 label_pred = 0
+        elif score_limit == 0.0:
+            label_pred = 1
         else:
             label_pred = 0
         
@@ -143,7 +145,6 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
         if label == label_pred:
             success += 1
             
-        print(f'Prediction: {label_pred}, target: {label}')
         # Check which correct labelling if correct
         if label == 0 and label == label_pred:
             no_fault_correct += 1

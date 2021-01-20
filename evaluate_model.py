@@ -115,7 +115,8 @@ def main():
     lim3 = np.linspace(0.82,1.0,num=10)
     limits=np.concatenate((lim1,lim2,lim3))
 
-    limits = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    # limits = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    limits = np.linspace(0.0,1.0,num=21)
     # limits = np.array([0.5])
     for limit in limits:
         if args.binary is None:
