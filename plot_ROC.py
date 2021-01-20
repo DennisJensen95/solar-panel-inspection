@@ -60,7 +60,8 @@ def plotResults():
     ycolTPR = 'TPR'
     xcolFPR = 'FPR'
     ycolAcc = 'Accuracy'
-    ycolSuc = 'Succes Percentage'
+    ycolSucF = 'Success (fault)'
+    ycolSucNF = 'Success (no fault)'
 
     fig1, ax1 = plt.subplots()
     sns.lineplot(ax = ax1, data=model_res, x=xcolFPR, y=ycolTPR, marker='o', color='red')
@@ -75,10 +76,11 @@ def plotResults():
     
     fig2, ax2 = plt.subplots() #1,2,figsize=(16,6)
     sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolAcc,marker = 'o')
-    # sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSuc, color ='red',marker='o')
+    sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSucNF, color ='green',marker='o')
+    sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSucF, color ='red',marker='o')
 
     ax2.set(ylabel='Percent', xlabel='Score limit')
-    # ax2.legend([ycolAcc, 'Success Percentage'])
+    ax2.legend([ycolAcc, ycolSucNF, ycolSucF])
 
     save_fig(fig2, path_im, "accuracy_plot")
 

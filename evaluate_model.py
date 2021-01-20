@@ -93,7 +93,7 @@ def main():
         dataset_test = LoadImages(img_dir, mask_dir, normalize=True)
         
     indices = torch.randperm(len(dataset_test)).tolist()
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[:])
+    dataset_test = torch.utils.data.Subset(dataset_test, indices[:1000])
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
@@ -103,7 +103,8 @@ def main():
         collate_fn=utils.collate_fn,
     )
 
-    success_vec = []
+    success_fault_vec = []
+    success_no_fault_vec = []
     Tpos_vec = []
     Fpos_vec = []
     Fneg_vec = []
@@ -116,8 +117,9 @@ def main():
     limits=np.concatenate((lim1,lim2,lim3))
 
     # limits = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    limits = np.linspace(0.0,1.0,num=21)
-    # limits = np.array([0.5])
+    # limits = np.linspace(0.0,1.0,num=21)
+    limits = np.array([0.0, 0.5, 1.0])
+
     for limit in limits:
         if args.binary is None:
             print(f'Currently checking score limit (multi-label): {limit}')
@@ -133,14 +135,15 @@ def main():
             accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
 
             accuracy_vec.append(accuracy)
-            success_vec.append(success_percent)
+            success_fault_vec.append(success_percent)
+            success_no_fault_vec.append(0)
             Tpos_vec.append(Tpos)
             Fpos_vec.append(Fpos)
             Fneg_vec.append(Fneg)
             Tneg_vec.append(Tneg)
         else:
             print(f'Currently checking score limit (binary): {limit}')
-            success_percent, Tpos, Fpos, Fneg, Tneg = evaluate_binary_new(
+            success_no_fault, success_fault, Tpos, Fpos, Fneg, Tneg = evaluate_binary_new(
                 model, 
                 data_loader_test, 
                 device,
@@ -150,7 +153,8 @@ def main():
             accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
 
             accuracy_vec.append(accuracy)
-            success_vec.append(success_percent)
+            success_no_fault_vec.append(success_no_fault)
+            success_fault_vec.append(success_fault)
             Tpos_vec.append(Tpos)
             Fpos_vec.append(Fpos)
             Fneg_vec.append(Fneg)
@@ -159,7 +163,8 @@ def main():
     data = {
                 # "Num images": num_images,
                 "Accuracy": accuracy_vec,
-                "Succes Percentage": success_vec,
+                "Success (no fault)": success_no_fault_vec,
+                "Success (fault)": success_fault_vec,
                 "True positives": Tpos_vec,
                 "False positives": Fpos_vec,
                 "False negatives": Fneg_vec,

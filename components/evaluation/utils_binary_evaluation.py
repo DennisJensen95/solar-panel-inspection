@@ -105,10 +105,7 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
 
     data_iter_test = iter(data_loader_test)
     # iterate over test subjects
-    success = 0
     num_images = 0
-    fault_correct = 0
-    no_fault_correct = 0
     fault_images = 0
     no_fault_images = 0
 
@@ -118,7 +115,6 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
     Tneg = 0
 
     for images, label in data_iter_test:
-        billede = images
         images = list(img.to(device) for img in images)
         label = label[0]
 
@@ -140,21 +136,15 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
             label_pred = 1
         else:
             label_pred = 0
-        
-        # Correct label succes
-        if label == label_pred:
-            success += 1
             
         # Check which correct labelling if correct
-        if label == 0 and label == label_pred:
-            no_fault_correct += 1
+        if label_pred == 0 and label == 0:
             Tneg += 1
-        elif label == 1 and label == label_pred:
-            fault_correct += 1
+        elif label_pred == 1 and label == 1:
             Tpos += 1
-        elif label_pred == 1 and label != label_pred:
+        elif label_pred == 1 and label == 0:
             Fpos += 1
-        elif label_pred == 0 and label != label_pred:
+        elif label_pred == 0 and label == 1:
             Fneg += 1
             
         # No fault images
@@ -164,14 +154,15 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
         # Fault images
         if label == 1:
             fault_images += 1
-        
+
         num_images += 1
-        success_percent = success / num_images
-            
+
+    success_no_fault = Tneg/no_fault_images
+    success_fault = Tpos/fault_images
     
     torch.set_num_threads(n_threads)
 
     # Set back in training mode
     model.train()
 
-    return success_percent, Tpos, Fpos, Fneg, Tneg
+    return success_no_fault, success_fault, Tpos, Fpos, Fneg, Tneg
