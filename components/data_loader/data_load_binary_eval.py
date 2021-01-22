@@ -45,7 +45,11 @@ class LoadImages():
         files = sorted(glob.glob(self.ImageDir))
         masks = sorted(glob.glob(self.GTDir))
 
+<<<<<<< HEAD
         files = self.RemoveNoMatches(files, masks)
+=======
+        # files = self.RemoveNoMatches(files, masks, n_f, n_m)
+>>>>>>> 80fe92d045fd37f14471cc3bfedaeed088ae4a78
         
         return files, masks
 

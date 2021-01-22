@@ -76,8 +76,8 @@ def main():
         img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
         mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
     else:
-        img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-        mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+        img_dir = "./data/Seriex_CellsAndGT/CellsCorr/"
+        mask_dir = "./data/Seriex_CellsAndGT/MaskGT/"
 
     print(f'Image dir: {img_dir}')
     print(f'Mask dir: {mask_dir}')

@@ -136,7 +136,7 @@ def evaluate_binary_new(model, data_loader_test, device, score_limit=0.5):
             label_pred = 1
         else:
             label_pred = 0
-            
+        
         # Check which correct labelling if correct
         if label_pred == 0 and label == 0:
             Tneg += 1
