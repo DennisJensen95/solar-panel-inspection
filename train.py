@@ -101,9 +101,6 @@ def train_one_epoch(model, optimizer, data_loader, data_loader_test, device, epo
 
 @torch.no_grad()
 def evaluate(model, data_loader_test, device, show_plot=False, inv_transform=False):
-    n_threads = torch.get_num_threads()
-    # FIXME remove this and make paste_masks_in_image run on the GPU
-    torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
 
     # Metric logger class
@@ -115,7 +112,7 @@ def evaluate(model, data_loader_test, device, show_plot=False, inv_transform=Fal
     success_vec = []
 
     pics = 0
-
+    accumulate_crack_a = 0
     data_iter_test = iter(data_loader_test)
     # iterate over test subjects
     data_log = logger.initialize_data()
@@ -127,11 +124,11 @@ def evaluate(model, data_loader_test, device, show_plot=False, inv_transform=Fal
         outputs = model(images)
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time
-
+        
         for i, prediction in enumerate(outputs):
             pics = pics + 1
             logger.__load__(targets[i], prediction)
-            label, score = logger.get_highest_predictions(score_limit=0.5)
+            label, score = logger.get_highest_predictions(score_limit=0.3)
             data, targets_success, predict_success = logger.calc_accuracy(score, overlap_limit=0.5)
             
             data_log = logger.add_data_to_data(data_log, data)
@@ -147,14 +144,13 @@ def evaluate(model, data_loader_test, device, show_plot=False, inv_transform=Fal
                 if targets_success is not None:
                     plot_w_bb(billeder[i], targets[i], prediction, targets_success, predict_success, inv_transform, plot_boxes=True)
 
+    print(accumulate_crack_a)
     success_percent = success_vec.count(1) / len(success_vec)
     
-    torch.set_num_threads(n_threads)
-
     # Set back in training mode
     model.train()
     
-    Tpos, Tneg, Fpos, Fneg, total_faults, correct_faults = logger.get_confusion_matrix_values(data_log)
+    Tpos, Tneg, Fpos, Fneg, total_faults, correct_faults, _ = logger.get_confusion_matrix_values(data_log)
     
     accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
     
@@ -204,8 +200,12 @@ def train():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
+    
+    img_dir = "./data/Seriex_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Seriex_CellsAndGT/MaskGT/"
+    print("Loading Data")
+    print(f'Img_dir: {img_dir}')
+    print(f'Mask_dir: {mask_dir}')
     dataset_train = solar_panel_data(
         img_dir,
         mask_dir,

@@ -79,7 +79,7 @@ def plotResults():
     sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSucNF, color ='green',marker='o')
     sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSucF, color ='red',marker='o')
 
-    ax2.set(ylabel='Percent', xlabel='Score limit')
+    ax2.set(ylabel='Rate', xlabel='Score limit')
     ax2.legend([ycolAcc, ycolSucNF, ycolSucF])
 
     save_fig(fig2, path_im, "accuracy_plot")

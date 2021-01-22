@@ -11,4 +11,4 @@ module load python3/3.8.2
 module load cuda/10.1 
 module load cudnn/v8.0.4.30-prod-cuda-10.1
 echo "Running script..."
-python3 evaluate_model.py --folder Results-folder/solar_model_mask_binary_20210115-103659 --binary yes
+python3 train.py

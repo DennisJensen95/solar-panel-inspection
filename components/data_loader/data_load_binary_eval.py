@@ -45,7 +45,7 @@ class LoadImages():
         files = sorted(glob.glob(self.ImageDir))
         masks = sorted(glob.glob(self.GTDir))
 
-        # files = self.RemoveNoMatches(files, masks, n_f, n_m)
+        files = self.RemoveNoMatches(files, masks)
         
         return files, masks
 
@@ -71,17 +71,14 @@ class LoadImages():
             [list]: [image paths with corresponding mask]
         """
         matches = []
-        for file in files:
-            file_name = os.path.basename(os.path.normpath(file))
-            file_name = file_name.replace("Corr", "")
-            file_name = file_name.replace(".png", "")
+        file_list = [file.replace("Corr", "").replace(".png", "") for file in files] 
+        masks_list = [os.path.basename(os.path.normpath(mask)).replace("GT_", "").replace(".mat", "") for mask in masks]
+        for i, file in enumerate(files):
+            file_name = os.path.basename(os.path.normpath(file_list[i]))
             
-            for mask in masks:
-                mask_name = os.path.basename(os.path.normpath(mask))
-                mask_name = mask_name.replace("GT_", "")
-                mask_name = mask_name.replace(".mat", "")
-                if mask_name == file_name:
-                    matches.append(file)
+            if file_name in masks_list:
+                matches.append(file)
+                
         return matches
 
     def RemoveNoLabels(self):

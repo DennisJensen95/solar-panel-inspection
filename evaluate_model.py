@@ -76,11 +76,12 @@ def main():
         img_dir = "./data/SerieA_CellsAndGT/CellsCorr/"
         mask_dir = "./data/SerieA_CellsAndGT/MaskGT/"
     else:
-        img_dir = "./data/Seriex_CellsAndGT/CellsCorr/"
-        mask_dir = "./data/Seriex_CellsAndGT/MaskGT/"
+        img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
+        mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
 
     print(f'Image dir: {img_dir}')
     print(f'Mask dir: {mask_dir}')
+    print(f'Model folder: {folder_name}')
     
     if args.binary is None:
         dataset_test = solar_panel_data(
@@ -120,11 +121,13 @@ def main():
     Tneg_vec = []
     accuracy_vec = []
 
-    lim1 = np.linspace(0.0,0.2,num=11)
-    lim2 = np.linspace(0.25,0.8,num=12)
-    lim3 = np.linspace(0.82,1.0,num=10)
-    limits=np.concatenate((lim1,lim2,lim3))
-
+    # lim1 = np.linspace(0.0,0.2,num=3)
+    # lim2 = np.linspace(0.25,0.8,num=5)
+    # lim3 = np.linspace(0.82,1.0,num=3)
+    # limits=np.concatenate((lim1,lim2,lim3))
+    
+    limits = np.array([0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.90, 0.95, 1.0])
+    
     for limit in limits:
         if args.binary is None:
             print(f'Currently checking score limit (multi-label): {limit}')
