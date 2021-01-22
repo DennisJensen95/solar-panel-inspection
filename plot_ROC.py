@@ -33,6 +33,10 @@ def plotResults():
             print(f'Failed to load model')
             return
 
+    image_folder = "Image_folder"
+    name = os.path.basename(os.path.normpath(filename))
+    path_im = create_im_folder(name,image_folder)
+
     sns.set_theme()
 
     l = np.arange(len(model_res))
@@ -56,7 +60,8 @@ def plotResults():
     ycolTPR = 'TPR'
     xcolFPR = 'FPR'
     ycolAcc = 'Accuracy'
-    ycolSuc = 'Succes Percentage'
+    ycolSucF = 'Success (fault)'
+    ycolSucNF = 'Success (no fault)'
 
     fig1, ax1 = plt.subplots()
     sns.lineplot(ax = ax1, data=model_res, x=xcolFPR, y=ycolTPR, marker='o', color='red')
@@ -65,27 +70,39 @@ def plotResults():
 
     area = auc(model_res["FPR"].to_numpy(), model_res["TPR"].to_numpy())
     plt.annotate('AUC: {}'.format(area), xy=(0.3,0.5))
+
+    save_fig(fig1, path_im, "roc_plot")
+
     
     fig2, ax2 = plt.subplots() #1,2,figsize=(16,6)
     sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolAcc,marker = 'o')
-    sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSuc, color ='red',marker='o')
+    sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSucNF, color ='green',marker='o')
+    sns.lineplot(ax = ax2, data=model_res, x= xcolLim, y= ycolSucF, color ='red',marker='o')
 
-    ax2.set(ylabel='Percent', xlabel='Score limit')
-    ax2.legend([ycolAcc, 'Success Percentage'])
+    ax2.set(ylabel='Rate', xlabel='Score limit')
+    ax2.legend([ycolAcc, ycolSucNF, ycolSucF])
 
-
+    save_fig(fig2, path_im, "accuracy_plot")
 
     print(model_res)
 
-
-    # fig2, ax2 = plt.subplots(1,3,figsize=(16,4))
-    # sns.lineplot(ax = ax2[0],data=model_res, y= 'Loss')
-    # sns.lineplot(ax = ax2[1],data=model_res, y= 'Succes Percentage',color ='red')
-    # sns.lineplot(ax = ax2[2],data=model_res, y= 'True positives',color = 'green')
-    # ax2.set()
-    # fig2.suptitle('boooooi')
-
     plt.show()
+
+def save_fig(fig, path, des):
+    filename = path+"/"+des+".png"
+    fig.savefig(filename)
+
+def create_im_folder(name,image_folder):
+    create_image_folder(image_folder)
+    folder_name = name
+    path = image_folder + "/" + folder_name
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+def create_image_folder(image_folder):
+    if not os.path.exists(image_folder):
+        os.mkdir(image_folder)
 
 def main():
     plotResults()

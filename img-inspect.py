@@ -44,7 +44,7 @@ def binary(args, img_dir, mask_dir, device, model):
         
     print(f"Evaluating binary case with cut off percentage: {cutoff_percent}")
     
-    success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, images = evaluate_binary(model, data_loader_test, device, cutoff_percent, plot_results=False)
+    success_percent, fault_correct, no_fault_correct, fault_images, no_fault_images, images = evaluate_binary(model, data_loader_test, device, cutoff_percent, plot_results=True)
     
     print(f'Succes percentage is: {success_percent}')
     print(f'Faults succesfully found: {fault_correct/fault_images}')
@@ -60,33 +60,35 @@ def evaluate_labels(img_dir, mask_dir, device, model):
         mask_dir,
         filter=True,
         mask="mask",
-        csv=True,
+        csv=False,
         train=False,
-        normalize=True
+        normalize=True,
+        area_limit=100
     )
-
-    num_classes = dataset_test.get_number_of_classes()
-    indices = torch.randperm(len(dataset_test)).tolist()
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[:])
-
+    
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test,
         batch_size=1,
         shuffle=True,
         num_workers=4,
         collate_fn=utils.collate_fn,
+        drop_last=True
     )
-
-    success_percent, Tpos, Fpos, Fneg, Tneg, data = evaluate(model, data_loader_test, device, show_plot=True, inv_transform=True)
+    
+    accuracy, success_percent, Tpos, Fpos, Fneg, Tneg, data = evaluate(model, data_loader_test, device, show_plot=False, inv_transform=True)
     
     accuracy = (Tpos+Tneg)/(Tpos+Tneg+Fpos+Fneg)
 
+    
+    
     logger = LogHelpers()
-    logger.print_data(data, success_percent, label='all')
+    # logger.print_confusion_matrix(data)
+    # logger.print_data(data, success_percent, label='all')
     logger.print_data(data, success_percent, label='Crack A')
     logger.print_data(data, success_percent, label='Crack B')
     logger.print_data(data, success_percent, label='Crack C')
-    logger.print_data(data, success_percent, label='Finger failure')
+    logger.print_data(data, success_percent, label='Finger Failure')
+    logger.print_data(data, success_percent, label='No failure')
     
 def main():
     parser = ap.ArgumentParser()
@@ -95,7 +97,8 @@ def main():
     args = parser.parse_args()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    folder_name = "solar_model_mask_fault-classification_20210114-093235"
+    # folder_name = "solar_model_mask_binary_20210115-103659" # best binary
+    folder_name = "solar_model_mask_fault-classification_20210114-093235" # Best label
 
     model_path = "./Results-folder/" + folder_name
 
@@ -106,8 +109,8 @@ def main():
     model.to(device)
 
     # Initialize data loader
-    img_dir = "./data/Serie1_CellsAndGT/CellsCorr/"
-    mask_dir = "./data/Serie1_CellsAndGT/MaskGT/"
+    img_dir = "./data/Seriex_CellsAndGT/CellsCorr/"
+    mask_dir = "./data/Seriex_CellsAndGT/MaskGT/"
     
     if args.binary != None:
         binary(args, img_dir, mask_dir, device, model)

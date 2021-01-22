@@ -3,6 +3,7 @@ from torchvision import transforms
 import scipy.io as sci
 from PIL import Image
 import glob
+import os
 
 class LoadImages():
     
@@ -12,9 +13,21 @@ class LoadImages():
         self.normalize = normalize
         self.files, self.masks = self.GeneratePath()
         self.files_fault, self.masks = self.RemoveNoLabels()
-        
         self.norm_mean = (0.485, 0.456, 0.406) 
         self.norm_std = (0.229, 0.224, 0.225)
+        
+        self.errors = 0 
+        
+        for file in self.files:
+            self.errors += self.compare_image_error_file_path(file)
+            
+        print(f'Number of error files: {self.errors}')
+    
+    def compare_image_error_file_path(self, img_file):
+        if img_file in self.files_fault:
+            return 1
+        else:
+            return 0
         
     def GeneratePath(self):
         """Generates path to images and removes
@@ -32,7 +45,11 @@ class LoadImages():
         files = sorted(glob.glob(self.ImageDir))
         masks = sorted(glob.glob(self.GTDir))
 
-        files = self.RemoveNoMatches(files, masks, n_f, n_m)
+<<<<<<< HEAD
+        files = self.RemoveNoMatches(files, masks)
+=======
+        # files = self.RemoveNoMatches(files, masks, n_f, n_m)
+>>>>>>> 80fe92d045fd37f14471cc3bfedaeed088ae4a78
         
         return files, masks
 
@@ -51,21 +68,22 @@ class LoadImages():
 
         return mask
 
-    def RemoveNoMatches(self, a, b, n_f, n_m):
+    def RemoveNoMatches(self, files, masks):
         """Returns any path that does not have a corresponding mask
 
         Returns:
             [list]: [image paths with corresponding mask]
         """
-        # Beware of the index!!
-        names = [w[(n_f + 19) : -4] for w in a]
-        names_m = [w[(n_m + 18) : -4] for w in b]
-
-        # Only keep strings that occur in each list
-        names = [x for x in names if x in names_m]
-
-        # Add the path back and return
-        return [a[0][: (n_f + 19)] + w + a[0][-4:] for w in names]
+        matches = []
+        file_list = [file.replace("Corr", "").replace(".png", "") for file in files] 
+        masks_list = [os.path.basename(os.path.normpath(mask)).replace("GT_", "").replace(".mat", "") for mask in masks]
+        for i, file in enumerate(files):
+            file_name = os.path.basename(os.path.normpath(file_list[i]))
+            
+            if file_name in masks_list:
+                matches.append(file)
+                
+        return matches
 
     def RemoveNoLabels(self):
         """Removes measurements that does not contain a label"""
@@ -88,7 +106,7 @@ class LoadImages():
         n_m = len(self.GTDir) - 1
 
         # Update files list
-        files_fault = self.RemoveNoMatches(self.files, names_m, n_f, n_m)
+        files_fault = self.RemoveNoMatches(self.files, names_m)
         
         return files_fault, masks
     
@@ -105,10 +123,7 @@ class LoadImages():
     def __getitem__(self, idx):
         filename = self.files[idx]
         
-        if filename in self.files_fault:
-            label = 1
-        else:
-            label = 0
+        label = self.compare_image_error_file_path(filename)
         
         img = Image.open(filename)
         img = img.convert('RGB')

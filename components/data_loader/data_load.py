@@ -48,7 +48,7 @@ class solar_panel_data:
         
         self.norm_mean = (0.485, 0.456, 0.406)
         self.norm_std = (0.229, 0.224, 0.225)
-        
+        self.label_count = np.array([0, 0, 0, 0])
         if os.path.exists(self.csv_filepath) and csv:
             print("Load csv")
             self.load_csv()
@@ -63,13 +63,14 @@ class solar_panel_data:
             )
             self.RemoveErrors(area_limit)
             print(f"Avaliable files: {len(self.files)}")
-            self.print_csv()    
+            self.print_csv()  
         
-
+        self.calc_label_counts()
+        
     def Load(self):
         """Load path to png images and labels/masks"""
         return self.GeneratePath()
-
+    
     def GeneratePath(self):
         """Generates path to images and removes
         any that does not have a corresponding mask
@@ -86,7 +87,7 @@ class solar_panel_data:
         files = sorted(glob.glob(self.ImageDir))
         masks = sorted(glob.glob(self.GTDir))
 
-        files = self.RemoveNoMatches(files, masks, n_f, n_m)
+        files = self.RemoveNoMatches(files, masks)
 
         return files, masks
 
@@ -107,22 +108,28 @@ class solar_panel_data:
 
         return mask
 
-    def RemoveNoMatches(self, a, b, n_f, n_m):
+    def RemoveNoMatches(self, files, masks):
         """Returns any path that does not have a corresponding mask
 
         Returns:
             [list]: [image paths with corresponding mask]
         """
-        # Beware of the index!!
-        names = [w[(n_f + 19) : -4] for w in a]
-        names_m = [w[(n_m + 18) : -4] for w in b]
+        matches = []
+        file_list = [file.replace("Corr", "").replace(".png", "") for file in files] 
+        masks_list = [os.path.basename(os.path.normpath(mask)).replace("GT_", "").replace(".mat", "") for mask in masks]
+        for i, file in enumerate(files):
+            file_name = os.path.basename(os.path.normpath(file_list[i]))
+            
+            if file_name in masks_list:
+                matches.append(file)
+                
+        return matches
 
-        # Only keep strings that occur in each list
-        names = [x for x in names if x in names_m]
-
-        # Add the path back and return
-        return [a[0][: (n_f + 19)] + w + a[0][-4:] for w in names]
-
+    def count_labels(self, label):
+        label_num = self.label_dic.encode(label)
+        add = np.array([label_num == 1, label_num == 2, label_num == 3, label_num == 4])
+        self.label_count += add
+    
     def RemoveNoLabels(self):
         """Removes measurements that does not contain a label"""
 
@@ -148,7 +155,7 @@ class solar_panel_data:
         n_m = len(self.GTDir) - 1
 
         # Update files list
-        self.files = self.RemoveNoMatches(self.files, names_m, n_f, n_m)
+        self.files = self.RemoveNoMatches(self.files, names_m)
 
     def RemoveErrors(self, area_limit):
         """Remove measurements where the area in a mask is too small.
@@ -171,13 +178,28 @@ class solar_panel_data:
         self.masks = names_m
         n_f = len(self.ImageDir) - 1
         n_m = len(self.GTDir) - 1
-        self.files = self.RemoveNoMatches(self.files, names_m, n_f, n_m)
+        self.files = self.RemoveNoMatches(self.files, names_m)
+        self.print_label_count()
+        
 
     def PrintPaths(self):
         for i in range(len(self.files)):
             print(self.files[i])
             print(self.masks[i])
             print("------------------------")
+    
+    def calc_label_counts(self):
+        self.label_count = np.array([0, 0, 0, 0])
+        for i in range(len(self.files)):
+            if i == len(self.files) - 1:
+                print(".")
+            if i % 50 == 0:
+                print(".", end="", flush=True)
+
+            self.__getitem__(i, find_error=False)
+        
+        print("After filtering")
+        self.print_label_count()
 
     def ResizeMasks(self, masks, resized_size):
         resized_mask = np.resize(masks, (len(masks), resized_size[0], resized_size[1]))
@@ -230,6 +252,12 @@ class solar_panel_data:
         
         return image, masks
     
+    def print_label_count(self):
+        print(f'Crack A labels : {self.label_count[0]}')
+        print(f'Crack B labels : {self.label_count[1]}')
+        print(f'Crack C labels : {self.label_count[2]}')
+        print(f'Finger Failures labels : {self.label_count[3]}')
+    
     def transform_image(self, image, train):
         # Resize
         resize = transforms.Resize(size=(224, 224))
@@ -279,8 +307,15 @@ class solar_panel_data:
         GT = sci.loadmat(mask_path)
         Labelstemp = GT["GTLabel"]  # fault labels
         Labels = np.transpose(Labelstemp)
-        mask = GT["GTMask"]  # fault mask
-        # Load example image
+        try:
+            mask = GT["GTMaskOld"]
+        except KeyError:
+            """Do nothing"""
+            
+        try:
+            mask = GT["GTMask"]
+        except KeyError:
+            """Do nothing"""
 
         img = Image.open(img_path)
         img = img.convert('RGB')
@@ -299,8 +334,14 @@ class solar_panel_data:
         else:  # Start checking for bounding boxes
             # Construct an array of labels
             new_labels = []
+            
             for i in range(len(Labels[0])):
                 new_labels.append(Labels[0][i][0])
+                
+                if find_error:
+                    self.count_labels(Labels[0][i][0])
+            
+                
 
             # 0: background
             # instances are encoded as different colors
@@ -352,6 +393,7 @@ class solar_panel_data:
             return True
 
         # Convert to tensor to calculate area easily
+        
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         area = torch.as_tensor(area, dtype=torch.float32)
@@ -395,6 +437,10 @@ class solar_panel_data:
             new_masks.append(Image.fromarray(mask))
         
         masks = new_masks
+        
+        if not find_error:
+            for label in new_labels:
+                self.count_labels(label)
         
         if self.mask:
             img, masks = self.transform_mask(img, masks, self.train)
